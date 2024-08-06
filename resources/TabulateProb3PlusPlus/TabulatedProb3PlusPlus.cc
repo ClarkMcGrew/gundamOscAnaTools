@@ -46,9 +46,9 @@ using WeightTable = std::map<int, std::vector<WeightElement>>;
 struct TableGlobals {
     std::string name;           // The table name
     std::vector<std::string> arguments; // initialization arguments
-    double oscPath;             // The path length for the table.
+    double oscPath;             // The path length for the table (km).
     double oscDensity;          // The density along the pat.
-    double oscMinEnergy;        // Minimum neutrino energy
+    double oscMinEnergy;        // Minimum neutrino energy (GeV)
     int oscNeutrinos;           // Number of neutrino types.
     int oscBins;                // Number of bins per neutrino type.
     double oscMaxLoverE;        // Osc table upper limit
@@ -229,7 +229,7 @@ bool readParameterDefinitions(std::string fileName,
 // BINS <integer>
 // PATH <double>       -- Path length in kilometers
 // DENSITY <double>
-// MIN_ENERGY <double>
+// MIN_ENERGY <double> -- Minimum neutrino energy in GeV
 // FLUX <file-name>
 // PARAMETERS <file-name>
 //
@@ -273,7 +273,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
         tmp >> arg >> globals.oscPath;
         break;
     }
-    // Get the maximum path length for neutrinos
+    // The material density along the path length
     for (std::string arg: globals.arguments) {
         if (arg.find("DENSITY") != 0) continue;
         std::istringstream tmp(arg);
