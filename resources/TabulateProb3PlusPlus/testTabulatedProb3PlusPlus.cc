@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     initFunc_arguments.push_back("BINS 100");
     initFunc_arguments.push_back("MIN_ENERGY 0.05");
     initFunc_arguments.push_back("MAX_PATH 295.0");
-    initFunc_arguments.push_back("PARAMETERS ${CONFIG_DIR}/200TabulatedAzimov-parameters.txt");
+    initFunc_arguments.push_back("PARAMETERS ${CONFIG_DIR}/200TabulatedAsimov-parameters.txt");
     initFunc_arguments.push_back("FLUX ${DATA_DIR}/nue.txt");
     initFunc_arguments.push_back("FLUX ${DATA_DIR}/nuebar.txt");
     initFunc_arguments.push_back("FLUX ${DATA_DIR}/numu.txt");
