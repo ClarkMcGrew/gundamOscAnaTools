@@ -4,7 +4,7 @@
 This repository contains a script that prepares files in a GUNDAM-friendly format by copying the `cafTree` and adding new branches, including the converted dials into a `TClonesArray` of `TGraphs`.
 
 ### New Branches Added
-The following branches are added to the `cafTree`:
+The following branches are added to the `event_tree`:
 
 - `POTScaledWeight`
 - `POTweight`
