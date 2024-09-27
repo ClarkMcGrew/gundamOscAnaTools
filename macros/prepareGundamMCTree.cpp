@@ -8,6 +8,10 @@
 #include <vector>
 #include <map>
 
+
+
+#include "TSystem.h"
+
 using namespace TMath;
 
 const double DELMSQ_31 = 2.515e-3; // In eV^2
@@ -16,13 +20,13 @@ const double LOSC = 1300.; // In km
 const double THETA_23 = 0.859;
 const double THETA_13 = 0.150;
 
-TString FHCnonswap = "/gpfs/scratch/uyevarouskay/DUNE/OA-inputs/FDCAF/FHC/nonswap/FD_FHC_nonswap.root";
-TString FHCnueswap = "/gpfs/scratch/uyevarouskay/DUNE/OA-inputs/FDCAF/FHC/nueswap/FD_FHC_nueswap.root";
-TString FHCtauswap = "/gpfs/scratch/uyevarouskay/DUNE/OA-inputs/FDCAF/FHC/tauswap/FD_FHC_tauswap.root";
+TString FHCnonswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/FHC/nonswap/FD_FHC_nonswap.root";
+TString FHCnueswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/FHC/nueswap/FD_FHC_nueswap.root";
+TString FHCtauswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/FHC/tauswap/FD_FHC_tauswap.root";
 
-TString RHCnonswap = "/gpfs/scratch/uyevarouskay/DUNE/OA-inputs/FDCAF/RHC/nonswap/FD_RHC_nonswap.root";
-TString RHCnueswap = "/gpfs/scratch/uyevarouskay/DUNE/OA-inputs/FDCAF/RHC/nueswap/FD_RHC_nueswap.root";
-TString RHCtauswap = "/gpfs/scratch/uyevarouskay/DUNE/OA-inputs/FDCAF/RHC/tauswap/FD_RHC_tauswap.root";
+TString RHCnonswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/RHC/nonswap/FD_RHC_nonswap.root";
+TString RHCnueswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/RHC/nueswap/FD_RHC_nueswap.root";
+TString RHCtauswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/RHC/tauswap/FD_RHC_tauswap.root";
 
 double POTperYear = 1.1e21;
 double FHCnonswapPOT = 1.62824e24;
@@ -79,7 +83,9 @@ void SplitMCTree_allSplit_func(bool useRHC, int startEntry, int endEntry, const 
     // Create the output file with a unique suffix
     std::string lMode = (useRHC ? "RHC" : "FHC");
 
-    TString outputFileName = TString::Format("/output_directory/MCevents_%s_%s_%d_to_%d.root", lMode.c_str(), outputFileSuffix.c_str(), startEntry, endEntry);
+    gSystem->mkdir(TString::Format("output_directory"), kTRUE);
+
+    TString outputFileName = TString::Format("./output_directory/MCevents_%s_%s_%d_to_%d.root", lMode.c_str(), outputFileSuffix.c_str(), startEntry, endEntry);
     TFile* outputFile = new TFile(outputFileName, "RECREATE");
 
     int nuPDG = 0;
@@ -230,13 +236,13 @@ void SplitMCTree_allSplit_func(bool useRHC, int startEntry, int endEntry, const 
     event_tree->Branch("isNC", &isNC);
     event_tree->Branch("isRHC", &isRHC);
 
-    std::vector<TClonesArray *> response_splines;    
+    std::vector<TClonesArray *> response_splines;
     std::vector<TBranch *> branch_vector;
-    
+
     for (const auto& prefix : branchPrefixes) {
-        
+
         response_splines.push_back(new TClonesArray("TGraph", 1));
-        branch_vector.push_back(event_tree->Branch((prefix+"_TGraph").c_str(), "TClonesArray", response_splines.data()[(int)(response_splines.size() -1)], 256000, 0));  
+        branch_vector.push_back(event_tree->Branch((prefix+"_TGraph").c_str(), "TClonesArray", response_splines.data()[(int)(response_splines.size() -1)], 256000, 0));
 
     }
 
@@ -365,4 +371,3 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-

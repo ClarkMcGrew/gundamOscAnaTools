@@ -1,13 +1,16 @@
 #!/bin/bash
 
 # Load any required modules (if necessary)
-module load root
+# On SeaWulf
+# module load root
+# On NNhome machine
+source /home/rrazakami/workspace/ROOT/root_binary/bin/thisroot.sh
 
 # Set useRHC to 0 (for FHC) or 1 (for RHC)
-useRHC=1  # Adjust this value as needed
+useRHC=${1:-0}  # Takes the first argument as useRHC, defaults to 0 if not provided
 
 # Define the total number of splits (jobs) for manual loop
-splitCount=10  # You can change this value
+splitCount=${2:-1}  # Default splitCount is 1 if not provided
 
 # Loop through the splits manually
 for jobID in $(seq 0 $((splitCount - 1))); do
@@ -18,4 +21,3 @@ done
 
 # Wait for all background jobs to finish
 wait
-
