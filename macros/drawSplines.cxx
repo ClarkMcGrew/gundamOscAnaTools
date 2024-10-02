@@ -5,9 +5,9 @@ void run(std::string filename1, std::string DialNames, TCanvas *canv)
     TTree *tree = (TTree*)file->Get("event_tree");
 
     // Use the TClonesArray for each branch
-    TClonesArray *SPLINE_1 = new TClonesArray(DialNames.c_str());
+    TClonesArray *SPLINE_1 = new TClonesArray();
     tree->SetBranchAddress(DialNames.c_str(), &SPLINE_1);
-        
+
     int nentries = tree->GetEntries();
     std::cout << "Processing " << nentries << " entries for branch: " << DialNames << std::endl;
 
@@ -15,7 +15,7 @@ void run(std::string filename1, std::string DialNames, TCanvas *canv)
     //TGraph *graphSpline;
     //TSpline3 *Tspline = nullptr;
 
-    for (int i = 9; i < 10; ++i)  // Process 3 events only
+    for (int i = 9; i < 10; ++i)  // Process 1 event only
     {
 
             // Reuse the graph and spline objects
