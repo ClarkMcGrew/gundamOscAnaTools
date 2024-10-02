@@ -35,10 +35,13 @@ Make the script executable and run it:
 
 ```bash
 chmod +x run_jobs.sh
-./run_jobs.sh  # Adjust useRHC=1/0 as needed
+useRHC=1 # Adjust useRHC=1/0 as needed
+splitCount=3
+./run_jobs.sh $useRHC $splitCount
 ```
 
-## Submitting Jobs to SLURM (Seawulf Cluster)
+### Submitting Jobs to SLURM 
+#### 1. Seawulf Cluster
 
 To submit jobs to the Seawulf cluster using SLURM, use the following commands depending on the mode:
 
@@ -52,4 +55,12 @@ sbatch submit_slurm_FHC.sh
 
 ```bash
 sbatch submit_slurm_RHC.sh
+```
+
+#### 2. NNhome
+Submit the Job with a Dynamically Set Array:
+```bash
+useRHC=1 # Adjust useRHC=1/0 (RHC/FHC) as needed
+splitCount=3 # Adjust job numbers as needed
+sbatch --array=0-$((splitCount - 1)) nnhome_slurm.sh $useRHC $splitCount
 ```
