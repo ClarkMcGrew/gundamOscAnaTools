@@ -20,13 +20,13 @@ const double LOSC = 1300.; // In km
 const double THETA_23 = 0.859;
 const double THETA_13 = 0.150;
 
-TString FHCnonswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/FHC/nonswap/FD_FHC_nonswap.root";
-TString FHCnueswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/FHC/nueswap/FD_FHC_nueswap.root";
-TString FHCtauswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/FHC/tauswap/FD_FHC_tauswap.root";
+TString FHCnonswap = "/storage/shared/DUNE/OA-inputs/TDR2/FDCAF/FHC/nonswap/FD_FHC_nonswap.root";
+TString FHCnueswap = "/storage/shared/DUNE/OA-inputs/TDR2/FDCAF/FHC/nueswap/FD_FHC_nueswap.root";
+TString FHCtauswap = "/storage/shared/DUNE/OA-inputs/TDR2/FDCAF/FHC/tauswap/FD_FHC_tauswap.root";
 
-TString RHCnonswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/RHC/nonswap/FD_RHC_nonswap.root";
-TString RHCnueswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/RHC/nueswap/FD_RHC_nueswap.root";
-TString RHCtauswap = "/storage/shared/DUNE/OA-inputs/CDR2/FDCAF/RHC/tauswap/FD_RHC_tauswap.root";
+TString RHCnonswap = "/storage/shared/DUNE/OA-inputs/TDR2/FDCAF/RHC/nonswap/FD_RHC_nonswap.root";
+TString RHCnueswap = "/storage/shared/DUNE/OA-inputs/TDR2/FDCAF/RHC/nueswap/FD_RHC_nueswap.root";
+TString RHCtauswap = "/storage/shared/DUNE/OA-inputs/TDR2/FDCAF/RHC/tauswap/FD_RHC_tauswap.root";
 
 double POTperYear = 1.1e21;
 double FHCnonswapPOT = 1.62824e24;
@@ -82,10 +82,8 @@ void SplitMCTree_allSplit_func(bool useRHC, int startEntry, int endEntry, const 
 
     // Create the output file with a unique suffix
     std::string lMode = (useRHC ? "RHC" : "FHC");
-
-    gSystem->mkdir(TString::Format("output_directory"), kTRUE);
-
-    TString outputFileName = TString::Format("./output_directory/MCevents_%s_%s_%d_to_%d.root", lMode.c_str(), outputFileSuffix.c_str(), startEntry, endEntry);
+    
+    TString outputFileName = TString::Format("/storage/shared/fyguo/Work/Projects/GUNDAM/gundamOscAnaTools/outputs_org/MCevents_%s_%s_%d_to_%d.root", lMode.c_str(), outputFileSuffix.c_str(), startEntry, endEntry);
     TFile* outputFile = new TFile(outputFileName, "RECREATE");
 
     int nuPDG = 0;
