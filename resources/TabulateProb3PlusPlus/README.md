@@ -19,28 +19,28 @@ This library is used to implemented a Tabulated dial in the a gundam yaml config
 
 ```yaml
 fitterEngineConfig:
-    propagatorConfig:
-        parameterSetListConfig
-            - name: aParameterSetName
-              dialSetDefinitions:
-                  - dialType: Tabulated
-                    tableConfig:
-                        name: "A table name"  # must be unique
-                        libraryPath: "${LIB_PATH}/libTabulatedProb3PlusPlus.so"
-                        updateFunction: "updateTable"
-                        binningFunction: "bintable"
-                        variables:
-                            - branch-with-nu-type   # Nu MC Code
-                            - branch-with-nu-energy # Nu energy in GeV
-                            - branch-with-path      # Pathlength in km
-                        initFunction: "initializeTable"
-                        initArguments:
-                            - "BINS <N>"       # bins per neutrino
-                            - "MIN_ENERGY <E>" # minimum neutrino energy
-                            - "PATH <L>"       # nominal path in km
-                            - "DENSITY <D>"    # the density in ???
-                            - "PARAMETERS <file>" # file defining fit params
-                            - "FLUX <file>"    # File with flux table
+  propagatorConfig:
+    parameterSetListConfig
+    - name: aParameterSetName
+      dialSetDefinitions:
+        - dialType: Tabulated
+          tableConfig:
+            name: "A table name"  # must be unique
+            libraryPath: "${LIB_PATH}/libTabulatedProb3PlusPlus.so"
+            updateFunction: "updateTable"
+            binningFunction: "bintable"
+            binningVariables:
+              - branch-with-nu-type   # Nu MC Code
+              - branch-with-nu-energy # Nu energy in GeV
+              - branch-with-path      # Pathlength in km
+            initFunction: "initializeTable"
+            initArguments:
+              - "BINS <N>"       # bins per neutrino
+              - "MIN_ENERGY <E>" # minimum neutrino energy
+              - "PATH <L>"       # nominal path in km
+              - "DENSITY <D>"    # the density in ???
+              - "PARAMETERS <file>" # file defining fit params
+              - "FLUX <file>"    # File with flux table
 ```
 
 The neutrino MC codes are the usual PDG codes for the neutrinos
