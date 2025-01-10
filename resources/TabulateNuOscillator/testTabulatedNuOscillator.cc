@@ -271,5 +271,28 @@ int main(int argc, char** argv) {
               << " " << 1000*elapsed.count()/iterations << " us per iteration"
               << std::endl;
 
+    iterations = 100;
+    std::cout << "Time " << iterations << " OscProb iterations"
+              << " (takes several seconds)" << std::endl;
+    // Time the calls
+    t1 = high_resolution_clock::now();
+
+    for (int i=0; i<iterations; ++i) {
+        par[4] = 1.0E-4*normal(engine) + 2.5E-3;
+        for (TableEntry& t : gOscTables) {
+            if (t.config.find("OscProb") == std::string::npos) continue;
+            t.updateFunc(t.name.c_str(),
+                         t.table.data(), t.table.size(),
+                         par.data(), par.size());
+        }
+    }
+    t2 = high_resolution_clock::now();
+
+    elapsed = t2 - t1;
+
+    std::cout << "OscProb Elapsed time: " << elapsed.count() << " ms total"
+              << " " << elapsed.count()/iterations << " ms per iteration"
+              << std::endl;
+
     std::exit(EXIT_SUCCESS);
 }

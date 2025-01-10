@@ -6,7 +6,9 @@ General:
 OscProbCalcerSetup:
   ImplementationName: "OscProb"
   PMNSType: "fast"
+  PREMFile: "./Configs/prem_44layers.txt"
   PREMLayers: "44"
+  DetDepth: "1.0"
   OscChannelMapping:
     - Entry: "Electron:Electron"
     - Entry: "Electron:Muon"
