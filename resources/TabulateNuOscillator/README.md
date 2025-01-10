@@ -23,13 +23,12 @@ After compiling, you need to source the NuOscillator setup script in `<build>/bi
 
 # Controlling TabulatedNuOscillator with the GUNDAM yaml config file
 
-This library is used to implemented a Tabulated dial in the a gundam yaml
+This library is used to implemented a `Tabulated` dial in the a gundam yaml
 config file.  This is done under the each parameter set definition.  Here
 is an example that setups the oscillation table for numu-to-numu,
 numu-to-nue, and numubar-to-numubar.
 
 ```yaml
-
   fitterEngineConfig:
   
     propagatorConfig:
@@ -104,61 +103,61 @@ numu-to-nue, and numubar-to-numubar.
                 - "GUNDAM_NU_ENERGY" # Nu energy in GeV
                 - "GUNDAM_NU_ZENITH" # Nu zenith cosine (optional)
 
-         - dialType: Tabulated
-           applyCondition: "GUNDAM_IS_CC!=0&&GUNDAM_FLUX==-14&&GUNDAM_NU==-14"
-           dialInputList:
-             - name: "GUNDAM_SIN_SQUARED_12"
-             - name: "GUNDAM_SIN_SQUARED_13"
-             - name: "GUNDAM_SIN_SQUARED_23"
-             - name: "GUNDAM_DELTA_MASS_SQUARED_12"
-             - name: "GUNDAM_DELTA_MASS_SQUARED_32"
-             - name: "GUNDAM_DELTA_CP_32"
-           tableConfig:
-             name: "Tabulated anti-numu to anti-numu NuFASTLinear"
-             libraryPath: "${NUOSCILLATOR}/lib/libTabulatedNuOscillator.so"
-             initFunction: "initializeTable"
-             initArguments:
-               - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
-               - "FLUX_FLAVOR anti-muon"          # muon neutrino flux
-               - "INTERACTION_FLAVOR anti-muon"   # muon neutrino
-               - "ENERGY_BINS 1000"
-               - "MIN_ENERGY 0.05"
-               - "MAX_ENERGY 30.0"
-               - "PATH 1300.0"
-               - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
-             updateFunction: "updateTable"
-             binningFunction: "bintable"
-             binningVariables:
-               - "GUNDAM_NU_ENERGY" # Nu energy in GeV
-               - "GUNDAM_NU_ZENITH" # Nu zenith cosine (optional)
+          - dialType: Tabulated
+            applyCondition: "GUNDAM_IS_CC!=0&&GUNDAM_FLUX==-14&&GUNDAM_NU==-14"
+            dialInputList:
+              - name: "GUNDAM_SIN_SQUARED_12"
+              - name: "GUNDAM_SIN_SQUARED_13"
+              - name: "GUNDAM_SIN_SQUARED_23"
+              - name: "GUNDAM_DELTA_MASS_SQUARED_12"
+              - name: "GUNDAM_DELTA_MASS_SQUARED_32"
+              - name: "GUNDAM_DELTA_CP_32"
+            tableConfig:
+              name: "Tabulated anti-numu to anti-numu NuFASTLinear"
+              libraryPath: "${NUOSCILLATOR}/lib/libTabulatedNuOscillator.so"
+              initFunction: "initializeTable"
+              initArguments:
+                - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
+                - "FLUX_FLAVOR anti-muon"          # muon neutrino flux
+                - "INTERACTION_FLAVOR anti-muon"   # muon neutrino
+                - "ENERGY_BINS 1000"
+                - "MIN_ENERGY 0.05"
+                - "MAX_ENERGY 30.0"
+                - "PATH 1300.0"
+                - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
+              updateFunction: "updateTable"
+              binningFunction: "bintable"
+              binningVariables:
+                - "GUNDAM_NU_ENERGY" # Nu energy in GeV
+                - "GUNDAM_NU_ZENITH" # Nu zenith cosine (optional)
 
-         - dialType: Tabulated
-           applyCondition: "GUNDAM_IS_CC!=0&&GUNDAM_FLUX==14&&GUNDAM_NU==12"
-           dialInputList:
-             - name: "GUNDAM_SIN_SQUARED_12"
-             - name: "GUNDAM_SIN_SQUARED_13"
-             - name: "GUNDAM_SIN_SQUARED_23"
-             - name: "GUNDAM_DELTA_MASS_SQUARED_12"
-             - name: "GUNDAM_DELTA_MASS_SQUARED_32"
-             - name: "GUNDAM_DELTA_CP_32"
-           tableConfig:
-             name: "Tabulated numu to nue NuFASTLinear"  # Must be unique.
-             libraryPath: "${NUOSCILLATOR}/lib/libTabulatedNuOscillator.so"
-             initFunction: "initializeTable"
-             initArguments:
-               - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
-               - "FLUX_FLAVOR muon"              # muon neutrino
-               - "INTERACTION_FLAVOR electron"   # electron neutrino
-               - "ENERGY_BINS 1000"
-               - "MIN_ENERGY 0.05"
-               - "MAX_ENERGY 30.0"
-               - "PATH 1300.0"
-               - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
-             updateFunction: "updateTable"
-             binningFunction: "bintable"
-             binningVariables:
-               - "GUNDAM_NU_ENERGY" # Nu energy in GeV
-               - "GUNDAM_NU_ZENITH" # Nu zenith cosine (optional)
+          - dialType: Tabulated
+            applyCondition: "GUNDAM_IS_CC!=0&&GUNDAM_FLUX==14&&GUNDAM_NU==12"
+            dialInputList:
+              - name: "GUNDAM_SIN_SQUARED_12"
+              - name: "GUNDAM_SIN_SQUARED_13"
+              - name: "GUNDAM_SIN_SQUARED_23"
+              - name: "GUNDAM_DELTA_MASS_SQUARED_12"
+              - name: "GUNDAM_DELTA_MASS_SQUARED_32"
+              - name: "GUNDAM_DELTA_CP_32"
+            tableConfig:
+              name: "Tabulated numu to nue NuFASTLinear"  # Must be unique.
+              libraryPath: "${NUOSCILLATOR}/lib/libTabulatedNuOscillator.so"
+              initFunction: "initializeTable"
+              initArguments:
+                - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
+                - "FLUX_FLAVOR muon"              # muon neutrino
+                - "INTERACTION_FLAVOR electron"   # electron neutrino
+                - "ENERGY_BINS 1000"
+                - "MIN_ENERGY 0.05"
+                - "MAX_ENERGY 30.0"
+                - "PATH 1300.0"
+                - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
+              updateFunction: "updateTable"
+              binningFunction: "bintable"
+              binningVariables:
+                - "GUNDAM_NU_ENERGY" # Nu energy in GeV
+                - "GUNDAM_NU_ZENITH" # Nu zenith cosine (optional)
 ```
 
 The initArguments values for everything except the `FLUX_FLAVOR`, and
@@ -175,7 +174,6 @@ type is an anti-neutrino.
 | muon antineutrino     |     anti-muon |      -14 |
 | tau neutrino          |           tau |       16 |
 | tau antineutrino      |      anti-tau |      -16 |
-|:----------------------|--------------:|---------:|
 
 The flux types are the same as the neutrino type.  When the flux type
 matches the neutrino type, a survival probability is used.  When the flux
