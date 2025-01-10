@@ -7,7 +7,8 @@ This repository contains a script that prepares files in a GUNDAM-friendly forma
 The following branches are added to the `event_tree`:
 
 - `POTScaledWeight`
-- `POTweight`
+- `POT_generated`
+<!-- - `POTweight` -->
 - `Nonswap`
 - `Nueswap`
 - `Tauswap`
