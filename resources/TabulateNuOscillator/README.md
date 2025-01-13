@@ -76,7 +76,7 @@ numu-to-nue, and numubar-to-numubar.
         dialSetDefinitions:
 
           - dialType: Tabulated
-            applyCondition: "GUNDAM_IS_CC!=0&&GUNDAM_FLUX==14&&GUNDAM_NU==14"
+            applyCondition: "[GUNDAM_IS_CC]!=0&&[GUNDAM_FLUX]==14&&[GUNDAM_NU]==14"
             dialInputList:
               - name: "GUNDAM_SIN_SQUARED_12"
               - name: "GUNDAM_SIN_SQUARED_13"
@@ -104,7 +104,7 @@ numu-to-nue, and numubar-to-numubar.
                 - "GUNDAM_NU_ZENITH" # Nu zenith cosine (optional)
 
           - dialType: Tabulated
-            applyCondition: "GUNDAM_IS_CC!=0&&GUNDAM_FLUX==-14&&GUNDAM_NU==-14"
+            applyCondition: "[GUNDAM_IS_CC]!=0&&[GUNDAM_FLUX]==-14&&[GUNDAM_NU]==-14"
             dialInputList:
               - name: "GUNDAM_SIN_SQUARED_12"
               - name: "GUNDAM_SIN_SQUARED_13"
@@ -132,7 +132,7 @@ numu-to-nue, and numubar-to-numubar.
                 - "GUNDAM_NU_ZENITH" # Nu zenith cosine (optional)
 
           - dialType: Tabulated
-            applyCondition: "GUNDAM_IS_CC!=0&&GUNDAM_FLUX==14&&GUNDAM_NU==12"
+            applyCondition: "[GUNDAM_IS_CC]!=0&&[GUNDAM_FLUX]==14&&[GUNDAM_NU]==12"
             dialInputList:
               - name: "GUNDAM_SIN_SQUARED_12"
               - name: "GUNDAM_SIN_SQUARED_13"
