@@ -2,7 +2,13 @@
 
 This is a simple example of how to use a oscillation weight calculation with GUNDAM.  This example is based on NuOscillator https://github.com/dbarrow257/NuOscillator.git, but the basic principles should apply to any tabulation method.
 
-Compiling this code on linux, you have to have a valid ROOT in your path which is typically done by sourcing the GUNDAM setup.sh, but can also be done using `thisroot.sh`.  Then you can compile using:
+Compiling this code on linux, you have to have a valid ROOT in your path which is typically done by sourcing the GUNDAM setup.sh, but can also be done using `thisroot.sh`. The `compile.sh` script will run those commands and is the best way to build:
+
+```bash
+./compile.sh
+```
+
+This does a little more error checking, but is essentially the same as
 
 ```bash
 mkdir build-$(uname -m)
@@ -13,8 +19,7 @@ make install
 
 That will grab the NuOscillator code, build it, and then build the
 libTabulatedNuOscillator.so file that can be included in GUNDAM.  This is
-not currently supported on MacOS, but probably could be made to work.  The
-`compile.sh` script will run those commands and is the best way to build.
+not currently supported on MacOS, but probably could be made to work.
 
 > Note: Do to NuOscillator idiosyncracies, this needs to be installed into
 > it's build directory.
