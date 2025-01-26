@@ -283,7 +283,7 @@ namespace {
 extern "C"
 int initializeTable(const char* name, int argc, const char* argv[],
                     int bins) {
-    LIB_COUT << "initialize" << std::endl;
+    LIB_COUT << "Initialize" << name << std::endl;
     TableGlobals& globals = globalLookup[name];
 
     // Set default values.
@@ -474,7 +474,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
 
     FillZenithArray(globals.oscZenith);
 
-#ifdef DEBUG_ENERGY_BINNING
+#ifdef DUMP_ENERGY_BINNING
     // Print the energy binning
     for (std::size_t bin = 0; bin < globals.oscEnergies.size(); ++bin) {
         double roughDMS = 2.5E-3;
@@ -589,13 +589,23 @@ int updateTable(const char* name,
                 double table[], int bins,
                 const double par[], int npar) {
 
+#ifdef DEBUG_UPDATE_TABLE
+    LIB_COUT << "Fill table " << name
+             << " @ " << (void*) table
+             << " bins: " << bins << std::endl;
+
+    for (int i = 0; i<npar; ++i) {
+        LIB_COUT << "     Parameter: " << i << " is " << par[i] << std::endl;
+    }
+#endif
+
     // Sanity check on all of the parameter values;
     for (int i = 0; i<npar; ++i) {
         if (not std::isnan(par[i])) continue;
-        LIB_CERR << LIB_NAME << ": " << name
-                  << " NAN PARAMETER VALUE: " << i
+        LIB_CERR << ": " << name
+                  << " WITH NAN PARAMETER VALUE: " << i
                   << std::endl;
-        throw std::runtime_error("NAN parameter value");
+        std::exit(EXIT_FAILURE);
     }
 
     TableGlobals& globals = globalLookup[name];
@@ -698,17 +708,42 @@ int updateTable(const char* name,
         std::exit(EXIT_FAILURE);
     }
 
-    // See if the table needs to be recalculated.  The oscillator is clever
-    // and will only recalculate if the parameters have changed.
-    config.oscillator->CalculateProbabilities(config.oscParams);
+    try {
+        // See if the table needs to be recalculated.  The oscillator is clever
+        // and will only recalculate if the parameters have changed.
+        config.oscillator->CalculateProbabilities(config.oscParams);
+    } catch (...) {
+        LIB_CERR << "Invalid probability or other throw from NuOscillator"
+                 << std::endl;
+        LIB_CERR << "Filling table " << name
+                 << " @ " << (void*) table
+                 << " bins: " << bins << std::endl;
+        for (int i = 0; i<npar; ++i) {
+            LIB_CERR << "     Parameter: " << i
+                     << " is " << par[i] << std::endl;
+        }
+        std::exit(EXIT_FAILURE);
+    }
 
     // Copy the table.
     if (bins != globals.weightAddress.size()) {
         LIB_CERR << "Mismatched table size"
                  << std::endl;
+        std::exit(EXIT_FAILURE);
     }
 
-    for (int i=0; i<bins; ++i) table[i] = *globals.weightAddress[i];
+    for (int i=0; i<bins; ++i) {
+        double v = *globals.weightAddress[i];
+        if (not std::isfinite(v) or v < 0.0 or v > 1.0) {
+            LIB_CERR << "Error filling " << name << std::endl;
+            for (int j = 0; j < npar; ++j) {
+                LIB_CERR << "   Parameter " << j << " is " << par[j] << std::endl;
+            }
+            LIB_CERR << "Weight is " << v << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        table[i] = v;
+    }
 
     return 0;
 }

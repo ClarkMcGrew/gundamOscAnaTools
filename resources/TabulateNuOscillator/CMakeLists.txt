@@ -48,5 +48,5 @@ add_executable(testTabulatedNuOscillator testTabulatedNuOscillator.cc)
 install(TARGETS testTabulatedNuOscillator DESTINATION bin)
 
 # Add the local configuration files.
-install(FILES Configs/GUNDAM_NuFASTLinear.yaml DESTINATION Configs)
-install(FILES Configs/GUNDAM_OscProb.yaml DESTINATION Configs)
+install(FILES Configs/GUNDAM_NuFASTLinear DESTINATION Configs)
+install(FILES Configs/GUNDAM_OscProb DESTINATION Configs)

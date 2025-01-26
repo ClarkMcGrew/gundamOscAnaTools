@@ -155,22 +155,22 @@ int main(int argc, char** argv) {
 
 #define TestNUFAST
 #ifdef TestNUFAST
-    AddTable("./Configs/GUNDAM_NuFASTLinear.yaml","muon","muon","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear.yaml","muon","tau","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear.yaml","muon","electron","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear.yaml","electron","electron","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear.yaml","electron","muon","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear.yaml","electron","tau","1000","");
+    AddTable("./Configs/GUNDAM_NuFASTLinear","muon","muon","1000","");
+    AddTable("./Configs/GUNDAM_NuFASTLinear","muon","electron","1000","");
+    AddTable("./Configs/GUNDAM_NuFASTLinear","electron","muon","1000","");
+    AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-muon","1000","");
+    AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-electron","1000","");
+    AddTable("./Configs/GUNDAM_NuFASTLinear","anti-electron","anti-muon","1000","");
 #endif
 
 #define TestOscProb
 #ifdef TestOscProb
-    AddTable("./Configs/GUNDAM_OscProb.yaml","muon","muon","100","20");
-    AddTable("./Configs/GUNDAM_OscProb.yaml","muon","electron","100","20");
-    AddTable("./Configs/GUNDAM_OscProb.yaml","muon","tau","100","20");
-    AddTable("./Configs/GUNDAM_OscProb.yaml","electron","electron","100","20");
-    AddTable("./Configs/GUNDAM_OscProb.yaml","electron","muon","100","20");
-    AddTable("./Configs/GUNDAM_OscProb.yaml","electron","tau","100","20");
+    AddTable("./Configs/GUNDAM_OscProb","muon","muon","100","20");
+    AddTable("./Configs/GUNDAM_OscProb","muon","electron","100","20");
+    AddTable("./Configs/GUNDAM_OscProb","muon","tau","100","20");
+    AddTable("./Configs/GUNDAM_OscProb","electron","electron","100","20");
+    AddTable("./Configs/GUNDAM_OscProb","electron","muon","100","20");
+    AddTable("./Configs/GUNDAM_OscProb","electron","tau","100","20");
 #endif
 
     std::random_device random_seed;
@@ -234,9 +234,11 @@ int main(int argc, char** argv) {
     std::cout << std::fixed
               << std::setprecision(6);
     for (int i = 0; i<9999; ++i) {
+        std::cout << "Entry " << i << " ";
         for (TableEntry& t : gOscTables) {
             if (t.config.find("NuFASTLinear") == std::string::npos) continue;
             if (t.table.size() <= i) {
+                std::cout << "END";
                 i = 9999;
                 break;
             }
