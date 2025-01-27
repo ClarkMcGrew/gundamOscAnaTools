@@ -480,7 +480,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
         double roughDMS = 2.5E-3;
         double LoverE = globals.oscPath/globals.oscEnergies[bin];
         const int defPrec = std::cout.precision();
-        LIB_COUT << " Approx Phase: "
+        LIB_COUT << bin << " Approx Phase: "
                  << std::setprecision(3) << std::fixed
                  << 1.27*roughDMS*LoverE/3.14 << "*pi"
                  << std::setprecision(1)
@@ -629,9 +629,9 @@ int updateTable(const char* name,
             LIB_CERR << "Wrong number of parameters" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        config.oscParams[Calcer::kTH12] = par[config.oscParIndex.ss12];
-        config.oscParams[Calcer::kTH13] = par[config.oscParIndex.ss13];
-        config.oscParams[Calcer::kTH23] = par[config.oscParIndex.ss23];
+        config.oscParams[Calcer::kTH12] = std::max(par[config.oscParIndex.ss12],1E-12);
+        config.oscParams[Calcer::kTH13] = std::max(par[config.oscParIndex.ss13],1E-12);
+        config.oscParams[Calcer::kTH23] = std::max(par[config.oscParIndex.ss23],1E-12);
         // NuOscillator reverses the index order on delta-mass-squared
         config.oscParams[Calcer::kDM12] = par[config.oscParIndex.dm21];
         config.oscParams[Calcer::kDM23] = par[config.oscParIndex.dm32];

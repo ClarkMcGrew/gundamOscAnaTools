@@ -76,7 +76,7 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("PARAMETERS SS12,SS23,SS13,DM21,DM32,DCP");
     initFunc_arguments.push_back("ENERGY_BINS "+energyBins);
     initFunc_arguments.push_back("ENERGY_STEP inverse");
-    initFunc_arguments.push_back("MIN_ENERGY 0.050");
+    initFunc_arguments.push_back("MIN_ENERGY 0.50");
     initFunc_arguments.push_back("MAX_ENERGY 50.0");
     if (not zenithBins.empty()) {
         initFunc_arguments.push_back("ZENITH_BINS "+zenithBins);
@@ -163,7 +163,6 @@ int main(int argc, char** argv) {
     AddTable("./Configs/GUNDAM_NuFASTLinear","anti-electron","anti-muon","1000","");
 #endif
 
-#define TestOscProb
 #ifdef TestOscProb
     AddTable("./Configs/GUNDAM_OscProb","muon","muon","100","20");
     AddTable("./Configs/GUNDAM_OscProb","muon","electron","100","20");
@@ -216,10 +215,16 @@ int main(int argc, char** argv) {
         }
     }
 
+    // The PDG values for oscillation parameters
+    std::vector<double> pdgPar = {3.07e-1,  // ss12
+                                  5.28e-1,  // ss23
+                                  2.18e-2,  // ss13
+                                  7.53e-5,  // dms21
+                                  2.509e-3, // dms32
+                                  -1.601};  // dcp
+
     // Check the update function.
-    std::vector<double> par = {3.07e-1, 5.28e-1, 2.18e-2,
-                               7.53e-5, 2.509e-3,
-                               -1.601};
+    std::vector<double> par = pdgPar;
     for (TableEntry& t : gOscTables) {
         std::cout << "Test " << t.name
                   << " update " << t.table.size()
@@ -249,6 +254,25 @@ int main(int argc, char** argv) {
     std::cout << std::defaultfloat
               << std::setprecision(default_precision)
               << std::setw(0);
+
+    // Iterate toward no oscillations
+    int iter = 0;
+    for (double ss23 = 0.60; ss23 > 1e-107; ss23 *= 0.7) {
+        par = pdgPar;
+        par[0] = ss23;
+        par[1] = ss23;
+        par[2] = ss23;
+        std::cout << "SS23 " << ss23;
+        for (TableEntry& t : gOscTables) {
+            if (t.config.find("NuFASTLinear") == std::string::npos) continue;
+            t.updateFunc(t.name.c_str(),
+                         t.table.data(), t.table.size(),
+                         par.data(), par.size());
+            std::cout  << std::setw(15)
+                       << t.table[800];
+        }
+        std::cout << std::endl;
+    }
 
     int iterations = 10000;
     std::cout << "Time " << iterations << " NuFASTLinear iterations"
