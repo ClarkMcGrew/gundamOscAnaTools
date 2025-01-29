@@ -84,18 +84,17 @@ std::vector<TString> RHCtauswap_MaCh3 = {
 
 double POTperYear = 1.1e21;
 double FHCnonswapPOT = 1.62824e24;
-// double FHCnueswapPOT = 1.64546e24;
-double FHCnueswapPOT = 1.62063e+24;
+double FHCnueswapPOT = 1.62063e24;
 double FHCtauswapPOT = 5.18551e24;
 
-double RHCnonswapPOT = 3.27608e+24;
-double RHCnueswapPOT = 3.24713e+24;
-double RHCtauswapPOT = 8.58955e+24;
+double RHCnonswapPOT = 3.27608e24;
+double RHCnueswapPOT = 3.24713e24;
+double RHCtauswapPOT = 8.58955e24;
 
 double scaleCorrection = 40. / 1.13; //1.13 is kt
 //for the 7-year nominal exposure is 40/1.13 * 1.1e21 * 3.5 which is the same for FHC and RHC since we're splitting half/half
 double POT_desired = scaleCorrection * POTperYear * (3.5);
-double POT_generated = 0.0;
+
 
 void fillArrayWithWeights(int size, std::vector<double>& array, int centralIndex, double centralValue) {
     for (int i = 0; i < size; i++) {
@@ -109,26 +108,15 @@ void SplitMCTree_allSplit_func(bool useRHC, int startEntry, int endEntry, const 
     std::vector<TString> nonswap;
     std::vector<TString> nueswap;
     std::vector<TString> tauswap;
-    double nonswapPOT = 0.;
-    double nueswapPOT = 0.;
-    double tauswapPOT = 0.;
 
     if (!useRHC) {
         nonswap = FHCnonswap_MaCh3;
         nueswap = FHCnueswap_MaCh3;
         tauswap = FHCtauswap_MaCh3;
-
-        // nonswapPOT = FHCnonswapPOT;
-        // nueswapPOT = FHCnueswapPOT;
-        // tauswapPOT = FHCtauswapPOT;
     } else {
         nonswap = RHCnonswap_MaCh3;
         nueswap = RHCnueswap_MaCh3;
         tauswap = RHCtauswap_MaCh3;
-
-        // nonswapPOT = RHCnonswapPOT;
-        // nueswapPOT = RHCnueswapPOT;
-        // tauswapPOT = RHCtauswapPOT;
     }
 
     TString filename = "";
@@ -149,12 +137,15 @@ void SplitMCTree_allSplit_func(bool useRHC, int startEntry, int endEntry, const 
     double Ev = 0.0;
     double POTScaledOscweight = 0.0;
     // double POTweight = 0.0;
+    double POT_generated = 0.0;
     int isNC = 0;
     int isRHC = 0;
 
-    int Nonswap = 0;
-    int Nueswap = 0;
-    int Tauswap = 0;
+    int SwapType = 0; // 1: nonswap files, 2: nueswap files, 3: tauswap files, 0: all other files
+
+    // int Nonswap = 0;
+    // int Nueswap = 0;
+    // int Tauswap = 0;
 
     ch1->SetBranchStatus("*", true);
     ch1->SetBranchAddress("nuPDG", &nuPDG);
@@ -165,6 +156,7 @@ void SplitMCTree_allSplit_func(bool useRHC, int startEntry, int endEntry, const 
         "FSILikeEAvailSmearing",
         "SPPLowQ2Suppression",
         "nuenuebar_xsec_ratio",
+        "nuenumu_xsec_ratio",
         "C12ToAr40_2p2hScaling_nubar",
         "C12ToAr40_2p2hScaling_nu",
         "EbFSLepMomShift",
@@ -287,9 +279,10 @@ void SplitMCTree_allSplit_func(bool useRHC, int startEntry, int endEntry, const 
     event_tree->Branch("POTScaledWeight", &POTScaledOscweight);
     // event_tree->Branch("POTweight", &POTweight);
     event_tree->Branch("POT_generated",&POT_generated);
-    event_tree->Branch("Nonswap", &Nonswap);
-    event_tree->Branch("Nueswap", &Nueswap);
-    event_tree->Branch("Tauswap", &Tauswap);
+    // event_tree->Branch("Nonswap", &Nonswap);
+    // event_tree->Branch("Nueswap", &Nueswap);
+    // event_tree->Branch("Tauswap", &Tauswap);
+    event_tree->Branch("SwapType", &SwapType);
     event_tree->Branch("isNC", &isNC);
     event_tree->Branch("isRHC", &isRHC);
 
@@ -317,59 +310,78 @@ void SplitMCTree_allSplit_func(bool useRHC, int startEntry, int endEntry, const 
     for (int i = startEntry; i < endEntry; ++i) {
         ch1->GetEntry(i);
         // Reset variables for each entry
-        Tauswap = 0;
-        Nonswap = 0;
-        Nueswap = 0;
+        // Tauswap = 0;
+        // Nonswap = 0;
+        // Nueswap = 0;
+        SwapType = 0;
         isNC = 0;
         isRHC = 0;
+        POTScaledOscweight = 0.0;
+        POT_generated = 0.0;
 
         filename = ch1->GetCurrentFile()->GetName();
-        if (isCC) {
-            if (std::find(nonswap.begin(), nonswap.end(), filename) != nonswap.end()) {
-            Nonswap = 1;
-            }
-            if (std::find(nueswap.begin(), nueswap.end(), filename) != nueswap.end()) {
-                Nueswap = 1;
-            }
-            if (std::find(tauswap.begin(), tauswap.end(), filename) != tauswap.end()) {
-                Tauswap = 1;
-            }
-            } else {
-            if (std::find(nonswap.begin(), nonswap.end(), filename) != nonswap.end()) {
-                isNC = 1;
-                Nonswap = 1;
-            }
-        }
+
+        if (std::find(nonswap.begin(), nonswap.end(), filename) != nonswap.end()) {
+            SwapType = 1;
+        }else if (std::find(nueswap.begin(), nueswap.end(), filename) != nueswap.end()) {
+            SwapType = 2;
+        }else if (std::find(tauswap.begin(), tauswap.end(), filename) != tauswap.end()) {
+            SwapType = 3;
+        }else { SwapType = 0; }
+
+        if (isCC==0 && std::find(nonswap.begin(), nonswap.end(), filename) != nonswap.end()) isNC = 1;
+
+        // if (isCC) {
+        //     if (std::find(nonswap.begin(), nonswap.end(), filename) != nonswap.end()) {
+        //         Nonswap = 1;
+        //     }
+        //     if (std::find(nueswap.begin(), nueswap.end(), filename) != nueswap.end()) {
+        //         Nueswap = 1;
+        //     }
+        //     if (std::find(tauswap.begin(), tauswap.end(), filename) != tauswap.end()) {
+        //         Tauswap = 1;
+        //     }
+        // } else {
+        //     if (std::find(nonswap.begin(), nonswap.end(), filename) != nonswap.end()) {
+        //         isNC = 1;
+        //         Nonswap = 1;
+        //     }
+        // }
 
         if(useRHC) isRHC = 1;
         // std::cout << "iEntry: " << i << ", isRHC: " << isRHC << ", Tauswap: " << Tauswap << ", Nonswap: " << Nonswap << ", Nueswap: " << Nueswap << std::endl;
         // std::cout << "FHCnonswapPOT: " << FHCnonswapPOT << ", FHCnueswapPOT: " << FHCnueswapPOT << std::endl;
-        if (Nonswap == 1 && isRHC == 0) {
+        if (SwapType == 1 && isRHC == 0) {
             POT_generated = FHCnonswapPOT;
             // std::cout << "Nonswap == 1 && isRHC == 0, POT_generated: " << POT_generated << std::endl;
         }
-        else if (Nueswap == 1 && isRHC == 0) {
+        else if (SwapType == 2 && isRHC == 0) {
             POT_generated = FHCnueswapPOT;
             // std::cout << "Nueswap == 1 && isRHC == 0, POT_generated: " << POT_generated << std::endl;
         }
-        else if (Tauswap == 1 && isRHC == 0) {
+        else if (SwapType == 3 && isRHC == 0) {
             POT_generated = FHCtauswapPOT;
             // std::cout << "Tauswap == 1 && isRHC == 0, POT_generated: " << POT_generated << std::endl;
         }
-        else if (Nonswap == 1 && isRHC == 1) {
+        else if (SwapType == 1 && isRHC == 1) {
             POT_generated = RHCnonswapPOT;
             // std::cout << "Nonswap == 1 && isRHC == 1, POT_generated: " << POT_generated << std::endl;
         }
-        else if (Nueswap == 1 && isRHC == 1) {
+        else if (SwapType == 2 && isRHC == 1) {
             POT_generated = RHCnueswapPOT;
             // std::cout << "Nueswap == 1 && isRHC == 1, POT_generated: " << POT_generated << std::endl;
         }
-        else if (Tauswap == 1 && isRHC == 1) {
+        else if (SwapType == 3 && isRHC == 1) {
             POT_generated = RHCtauswapPOT;
             // std::cout << "Tauswap == 1 && isRHC == 1, POT_generated: " << POT_generated << std::endl;
         }
        
-        POTScaledOscweight = POT_desired * 1.0/ POT_generated;
+        if (POT_generated>0){
+            POTScaledOscweight = POT_desired * 1.0/ POT_generated;
+        } else {
+            POTScaledOscweight = 0.;
+        }
+        std::cout << "POTScaledOscweight: " << POTScaledOscweight << std::endl;
         // POTweight = POTperYear / nonswapPOT;
 
         int parCount = -1;
