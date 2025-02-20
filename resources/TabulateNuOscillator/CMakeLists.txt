@@ -42,10 +42,10 @@ cmessage(STATUS "nuOscillator binary directory: ${nuoscillator_BINARY_DIR}")
 add_library(TabulatedNuOscillator SHARED TabulatedNuOscillator.cc)
 target_link_libraries(TabulatedNuOscillator PUBLIC NuOscillator::All)
 install(TARGETS TabulatedNuOscillator DESTINATION lib)
-
 # A test executable
 add_executable(testTabulatedNuOscillator testTabulatedNuOscillator.cc)
 install(TARGETS testTabulatedNuOscillator DESTINATION bin)
+target_link_libraries(testTabulatedNuOscillator PRIVATE dl)
 
 # Add the local configuration files.
 install(FILES Configs/GUNDAM_NuFASTLinear DESTINATION Configs)
