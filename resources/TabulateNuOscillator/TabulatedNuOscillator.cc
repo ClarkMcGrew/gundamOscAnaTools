@@ -594,9 +594,11 @@ int updateTable(const char* name,
              << " @ " << (void*) table
              << " bins: " << bins << std::endl;
 
+    LIB_COUT << "    PAR --";
     for (int i = 0; i<npar; ++i) {
-        LIB_COUT << "     Parameter: " << i << " is " << par[i] << std::endl;
+        std::cout << " " << i << ": " << par[i];
     }
+    std::cout << std::endl;
 #endif
 
     // Sanity check on all of the parameter values;
@@ -639,6 +641,16 @@ int updateTable(const char* name,
         config.oscParams[Calcer::kPATHL] = config.oscPath;
         config.oscParams[Calcer::kDENS] = config.oscDensity;
         config.oscParams[Calcer::kELECDENS] = config.oscElectronDensity;
+#ifdef DEBUG_NUFAST_PARAMS
+        LIB_COUT << "kTH12 " << config.oscParams[Calcer::kTH12] << std::endl;
+        LIB_COUT << "kTH23 " << config.oscParams[Calcer::kTH23] << std::endl;
+        LIB_COUT << "kTH13 " << config.oscParams[Calcer::kTH13] << std::endl;
+        LIB_COUT << "kDM12 " << config.oscParams[Calcer::kDM12] << std::endl;
+        LIB_COUT << "kDM23 " << config.oscParams[Calcer::kDM23] << std::endl;
+        LIB_COUT << "kPATHL " << config.oscParams[Calcer::kPATHL] << std::endl;
+        LIB_COUT << "kDENS " << config.oscParams[Calcer::kDENS] << std::endl;
+        LIB_COUT << "kELECDENS " << config.oscParams[Calcer::kELECDENS] << std::endl;
+#endif
     }
 #endif
 #ifdef UseProb3ppLinear
@@ -752,6 +764,16 @@ int updateTable(const char* name,
         }
         table[i] = v;
     }
+
+#ifdef DUMP_UPDATE_TABLE
+    std::cout << "Table: " << name << std::endl;
+    for (int i=0; i<bins; ++i) {
+        std::cout << "  bin" << i
+                  << " value: " << table[i]
+                  << " energy: " << globals.oscEnergies[i]
+                  << std::endl;
+    }
+#endif
 
     return 0;
 }
