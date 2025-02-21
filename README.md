@@ -1,6 +1,6 @@
 # Gundam Oscillation Analysis Toolkit
 
-This is a set of tools used to put together an oscillation analysis using the GUNDAM (Generalized Unified Neutrino Data Analysis Method).  The primary (and initial) target for the tool kit is the DUNE experiment, but it aims to be applicable to any experiment.  The initial direction is towards PNMS analyses.  
+This is a set of tools for neutrino oscillation analyses using GUNDAM (Generalized Unified Neutrino Data Analysis Method).  The primary (and initial) target for the tool kit is the DUNE experiment, but it aims to be applicable to any experiment.  The initial concentration are PNMS analyses.  
 
 # Using the tool kit
 
