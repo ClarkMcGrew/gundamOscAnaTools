@@ -242,7 +242,7 @@ namespace {
         newConfig.oscillator->SetEnergyArrayInCalcer(newConfig.energies);
         if (not newConfig.oscillator->CosineZIgnored()) {
             if (newConfig.zenith.empty()) {
-                LIB_CERR << "Zenith angle bins not filled and not ignored"
+                LIB_CERR << "Zenith angle bins not filled for atmospheric oscillator"
                         << std::endl;
                 std::exit(EXIT_FAILURE);
             }
@@ -620,13 +620,13 @@ int updateTable(const char* name,
     ////////////////////////////////////////////////////////////////////////
 #ifdef UseNuFASTLinear
     if (config.oscillator->ReturnImplementationName()
-        == "Unbinned_NuFASTLinear") {
+        .find("Unbinned_NuFASTLinear") != std::string::npos) {
         oscParamsFilled = true;
         // This one only works for LBL neutrino oscillations
         using Calcer = OscProbCalcerNuFASTLinear;
         if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters" << std::endl;
-            LIB_CERR << "Wrong number of parameters" << std::endl;
+            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
             std::exit(EXIT_FAILURE);
         }
         config.oscParams[Calcer::kTH12] = std::max(par[config.oscParIndex.ss12],1E-12);
@@ -643,13 +643,13 @@ int updateTable(const char* name,
 #endif
 #ifdef UseProb3ppLinear
     if (config.oscillator->ReturnImplementationName()
-        == "Unbinned_Prob3ppLinear") {
+        .find("Unbinned_Prob3ppLinear") != std::string::npos) {
         oscParamsFilled = true;
         // This one only works for LBL neutrino oscillations
         using Calcer = OscProbCalcerProb3ppLinear;
         if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters" << std::endl;
-            LIB_CERR << "Wrong number of parameters" << std::endl;
+            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
             std::exit(EXIT_FAILURE);
         }
         config.oscParams[Calcer::kTH12] = par[config.oscParIndex.ss12];
@@ -664,13 +664,21 @@ int updateTable(const char* name,
 #endif
 #ifdef UseOscProb
     if (config.oscillator->ReturnImplementationName()
-        == "Unbinned_OscProb") {
+        .find("Unbinned_OscProb") != std::string::npos) {
         oscParamsFilled = true;
         // This one only works for atmospheric neutrino oscillations
         using Calcer = OscProbCalcerOscProb;
-        if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters" << std::endl;
-            LIB_CERR << "Wrong number of parameters" << std::endl;
+        if (Calcer::kNOscParams+1 == config.oscillator->ReturnNOscParams()) {
+            config.oscParams[Calcer::kNOscParams] = config.oscProdHeight;
+        }
+        else if (Calcer::kNOscParams+3 == config.oscillator->ReturnNOscParams()) {
+            config.oscParams[Calcer::kNOscParams] = config.oscPath;
+            config.oscParams[Calcer::kNOscParams+1] = config.oscDensity;
+            config.oscParams[Calcer::kNOscParams+2] = 0.5;
+        }
+        else if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
+            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
             std::exit(EXIT_FAILURE);
         }
         config.oscParams[Calcer::kTH12] = par[config.oscParIndex.ss12];
@@ -683,13 +691,13 @@ int updateTable(const char* name,
 #endif
 #ifdef UseCUDAProb3
     if (config.oscillator->ReturnImplementationName()
-        == "Unbinned_CUDAProb3") {
+        .find("Unbinned_CUDAProb3") != std::string::npos) {
         oscParamsFilled = true;
         // This one only works for atmospheric neutrino oscillations
         using Calcer = OscProbCalcerCUDAProb3;
         if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters" << std::endl;
-            LIB_CERR << "Wrong number of parameters" << std::endl;
+            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
             std::exit(EXIT_FAILURE);
         }
         config.oscParams[Calcer::kTH12] = par[config.oscParIndex.ss12];

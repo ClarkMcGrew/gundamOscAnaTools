@@ -163,13 +163,14 @@ int main(int argc, char** argv) {
     AddTable("./Configs/GUNDAM_NuFASTLinear","anti-electron","anti-muon","1000","");
 #endif
 
+#define TestOscProb
 #ifdef TestOscProb
-    AddTable("./Configs/GUNDAM_OscProb","muon","muon","100","20");
-    AddTable("./Configs/GUNDAM_OscProb","muon","electron","100","20");
-    AddTable("./Configs/GUNDAM_OscProb","muon","tau","100","20");
-    AddTable("./Configs/GUNDAM_OscProb","electron","electron","100","20");
-    AddTable("./Configs/GUNDAM_OscProb","electron","muon","100","20");
-    AddTable("./Configs/GUNDAM_OscProb","electron","tau","100","20");
+    AddTable("./Configs/GUNDAM_OscProb","muon","muon","200","40");
+    AddTable("./Configs/GUNDAM_OscProb","muon","electron","200","40");
+    AddTable("./Configs/GUNDAM_OscProb","muon","tau","200","40");
+    AddTable("./Configs/GUNDAM_OscProb","electron","electron","200","40");
+    AddTable("./Configs/GUNDAM_OscProb","electron","muon","200","40");
+    AddTable("./Configs/GUNDAM_OscProb","electron","tau","200","40");
 #endif
 
     std::random_device random_seed;
@@ -281,6 +282,7 @@ int main(int argc, char** argv) {
     auto t1 = high_resolution_clock::now();
 
     for (int i=0; i<iterations; ++i) {
+        par = pdgPar;
         par[4] = 1.0E-4*normal(engine) + 2.5E-3;
         for (TableEntry& t : gOscTables) {
             if (t.config.find("NuFASTLinear") == std::string::npos) continue;
@@ -304,6 +306,7 @@ int main(int argc, char** argv) {
     t1 = high_resolution_clock::now();
 
     for (int i=0; i<iterations; ++i) {
+        par = pdgPar;
         par[4] = 1.0E-4*normal(engine) + 2.5E-3;
         for (TableEntry& t : gOscTables) {
             if (t.config.find("OscProb") == std::string::npos) continue;
