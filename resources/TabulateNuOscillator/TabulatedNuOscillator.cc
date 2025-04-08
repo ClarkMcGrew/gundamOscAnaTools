@@ -714,8 +714,8 @@ int updateTable(const char* name,
             std::exit(EXIT_FAILURE);
         }
         config.oscParams[0] = par[config.oscParIndex.ss12];
-        config.oscParams[1] = par[config.oscParIndex.ss13];
-        config.oscParams[2] = par[config.oscParIndex.ss23];
+        config.oscParams[2] = par[config.oscParIndex.ss13];
+        config.oscParams[1] = par[config.oscParIndex.ss23];
         config.oscParams[3] = par[config.oscParIndex.dm21];
         config.oscParams[4] = par[config.oscParIndex.dm32];
         config.oscParams[5] = par[config.oscParIndex.dcp];
