@@ -24,7 +24,7 @@
 #warning Including OscProb in the build
 #include <OscProbCalcer/OscProbCalcer_OscProb.h>
 #endif
-#undef UseCUDAProb3     // (as of 25/01) BUG in OscProbCalcer_CUDAProb3.h
+//#undef UseCUDAProb3     // (as of 25/01) BUG in OscProbCalcer_CUDAProb3.h
 #ifdef UseCUDAProb3
 #warning Including CUDAProb3 in the build
 #include <OscProbCalcer/OscProbCalcer_CUDAProb3.h>
@@ -702,23 +702,24 @@ int updateTable(const char* name,
     }
 #endif
 #ifdef UseCUDAProb3
+    //std::cout<<"MyDebug: "<<config.oscillator->ReturnImplementationName()<<std::endl;
     if (config.oscillator->ReturnImplementationName()
         .find("Unbinned_CUDAProb3") != std::string::npos) {
         oscParamsFilled = true;
         // This one only works for atmospheric neutrino oscillations
         using Calcer = OscProbCalcerCUDAProb3;
-        if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
-            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
+        if (7 != config.oscillator->ReturnNOscParams()) {
+            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << 7  << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << 7  << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        config.oscParams[Calcer::kTH12] = par[config.oscParIndex.ss12];
-        config.oscParams[Calcer::kTH13] = par[config.oscParIndex.ss13];
-        config.oscParams[Calcer::kTH23] = par[config.oscParIndex.ss23];
-        config.oscParams[Calcer::kDM12] = par[config.oscParIndex.dm21];
-        config.oscParams[Calcer::kDM23] = par[config.oscParIndex.dm32];
-        config.oscParams[Calcer::kDCP] = par[config.oscParIndex.dcp];
-        config.oscParams[Calcer::kPRODH] = config.oscProdHeight;
+        config.oscParams[0] = par[config.oscParIndex.ss12];
+        config.oscParams[1] = par[config.oscParIndex.ss13];
+        config.oscParams[2] = par[config.oscParIndex.ss23];
+        config.oscParams[3] = par[config.oscParIndex.dm21];
+        config.oscParams[4] = par[config.oscParIndex.dm32];
+        config.oscParams[5] = par[config.oscParIndex.dcp];
+        config.oscParams[6] = config.oscProdHeight;
     }
 #endif
 
