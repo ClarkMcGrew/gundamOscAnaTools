@@ -153,24 +153,40 @@ double CreateHist(std::map<int,int>& hist, double maxBin, int bins) {
 
 int main(int argc, char** argv) {
 
-#define TestNUFAST
 #ifdef TestNUFAST
+#warning "Test NUFAST"
     AddTable("./Configs/GUNDAM_NuFASTLinear","muon","muon","1000","");
     AddTable("./Configs/GUNDAM_NuFASTLinear","muon","electron","1000","");
     AddTable("./Configs/GUNDAM_NuFASTLinear","electron","muon","1000","");
     AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-muon","1000","");
     AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-electron","1000","");
     AddTable("./Configs/GUNDAM_NuFASTLinear","anti-electron","anti-muon","1000","");
+#else
+#warning "Not testing NUFAST"
 #endif
 
-#define TestOscProb
 #ifdef TestOscProb
+#warning "Test OscProb"
     AddTable("./Configs/GUNDAM_OscProb","muon","muon","200","40");
     AddTable("./Configs/GUNDAM_OscProb","muon","electron","200","40");
     AddTable("./Configs/GUNDAM_OscProb","muon","tau","200","40");
     AddTable("./Configs/GUNDAM_OscProb","electron","electron","200","40");
     AddTable("./Configs/GUNDAM_OscProb","electron","muon","200","40");
     AddTable("./Configs/GUNDAM_OscProb","electron","tau","200","40");
+#else
+#warning "Not testing OscProb"
+#endif
+
+#ifdef TestCUDAProb3
+#warning "Test CUDAProb3"
+    AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon","200","40");
+    AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron","200","40");
+    AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau","200","40");
+    AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron","200","40");
+    AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon","200","40");
+    AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau","200","40");
+#else
+#warning "Not testing CUDAProb3"
 #endif
 
     std::random_device random_seed;
@@ -240,16 +256,19 @@ int main(int argc, char** argv) {
     std::cout << std::fixed
               << std::setprecision(6);
     for (int i = 0; i<9999; ++i) {
-        std::cout << "Entry " << i << " ";
+        std::cout << "Check Entry " << i << " ";
+        bool found = false;
         for (TableEntry& t : gOscTables) {
             if (t.config.find("NuFASTLinear") == std::string::npos) continue;
+            found = true;
             if (t.table.size() <= i) {
                 std::cout << "END";
                 i = 9999;
                 break;
             }
-            std::cout  << std::setw(10) << t.table[i] << " ";
+            std::cout << std::setw(10) << t.table[i] << " ";
         }
+        if (not found) i = 9999;
         std::cout << std::endl;
     }
     std::cout << std::defaultfloat
@@ -264,8 +283,10 @@ int main(int argc, char** argv) {
         par[1] = ss23;
         par[2] = ss23;
         std::cout << "SS23 " << ss23;
+        bool found = false;
         for (TableEntry& t : gOscTables) {
             if (t.config.find("NuFASTLinear") == std::string::npos) continue;
+            found = true;
             t.updateFunc(t.name.c_str(),
                          t.table.data(), t.table.size(),
                          par.data(), par.size());
@@ -273,6 +294,10 @@ int main(int argc, char** argv) {
                        << t.table[800];
         }
         std::cout << std::endl;
+        if (not found) {
+            std::cout << "No NuFASTLinear table" << std::endl;
+            break;
+        }
     }
 
     int iterations = 10000;
