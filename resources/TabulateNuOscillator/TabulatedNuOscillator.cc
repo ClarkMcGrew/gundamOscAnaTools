@@ -24,7 +24,6 @@
 #warning Including OscProb in the build
 #include <OscProbCalcer/OscProbCalcer_OscProb.h>
 #endif
-//#undef UseCUDAProb3     // (as of 25/01) BUG in OscProbCalcer_CUDAProb3.h
 #ifdef UseCUDAProb3
 #warning Including CUDAProb3 in the build
 #include <OscProbCalcer/OscProbCalcer_CUDAProb3.h>
@@ -57,7 +56,13 @@ namespace {
         double oscProdHeight;
         // NuOscillator interface values:
         //    -- FLOAT_T is defined in OscillatorConstants.h (no namespace).
+#ifdef TABULATED_NUOSCILLATOR_DECONSTRUCTABLE
+        // OK when OscillatorBase can be safely deconstructed (it is iffy)
         std::unique_ptr<OscillatorBase> oscillator;
+#else
+        // Work around OscillatorBase deconstructor bugs.
+        OscillatorBase* oscillator;
+#endif
         std::vector<FLOAT_T> energies; // The energies for each bin
         std::vector<FLOAT_T> zenith;   // The cosines for each bin
         std::vector<FLOAT_T> oscParams;
@@ -84,7 +89,6 @@ namespace {
         // NuOscillator::kTau==3.  Anti-neutrinos are specified using a
         // negative value.  The oscInitialFlavor and oscFinalFlavor must have
         // the same sign to be valid.
-        std::unique_ptr<OscillatorBase> oscillator;
         int oscInitialFlavor;       // Flavor of the parent (neg. for anti)
         int oscFinalFlavor;         // Flaver of the interacting
         FLOAT_T oscDensity;         // The density along the path (gm/cc)
@@ -230,7 +234,11 @@ namespace {
 
         std::unique_ptr<OscillatorFactory> factory
             = std::make_unique<OscillatorFactory>();
+#ifdef TABULATED_NUOSCILLATOR_DECONSTRUCTABLE
         newConfig.oscillator.reset(factory->CreateOscillator(newConfig.name));
+#else
+        newConfig.oscillator = factory->CreateOscillator(newConfig.name);
+#endif
 
         if (newConfig.oscillator->ReturnImplementationName().find("Unbinned_")
             == std::string::npos) {
@@ -260,6 +268,8 @@ namespace {
 
         newConfig.oscillator->Setup();
         newConfig.oscParams.resize(newConfig.oscillator->ReturnNOscParams());
+
+        LIB_COUT << "Configured: " << newConfig.name << std::endl;
     }
 };
 
@@ -283,7 +293,7 @@ namespace {
 extern "C"
 int initializeTable(const char* name, int argc, const char* argv[],
                     int bins) {
-    LIB_COUT << "Initialize" << name << std::endl;
+    LIB_COUT << "Initialize: " << name << std::endl;
     TableGlobals& globals = globalLookup[name];
 
     // Set default values.
