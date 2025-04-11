@@ -16,7 +16,7 @@ message("System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 set(UseGPU 1 CACHE STRING "NuOscillator Option -- Use the GPU")
 set(UseDoubles 1 CACHE STRING "NuOscillator Option -- Use doubles")
-set(UseCUDAProb3 0 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3")
+set(UseCUDAProb3 1 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3")
 set(UseCUDAProb3Linear 0 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3Linear")
 set(UseOscProb 1 CACHE STRING  "NuOscillator Option -- Enable OscProb")
 set(UseProb3ppLinear 1 CACHE STRING  "NuOscillator Option -- Enable Prob3ppLinear")
@@ -45,6 +45,16 @@ install(TARGETS TabulatedNuOscillator DESTINATION lib)
 
 # A test executable
 add_executable(testTabulatedNuOscillator testTabulatedNuOscillator.cc)
+if (UseNuFASTLinear)
+  target_compile_definitions(testTabulatedNuOscillator PUBLIC TestNUFAST)
+endif(UseNuFASTLinear)
+if (UseOscProb)
+  target_compile_definitions(testTabulatedNuOscillator PUBLIC TestOscProb)
+endif(UseOscProb)
+if (UseCUDAProb3)
+  target_compile_definitions(testTabulatedNuOscillator PUBLIC TestCUDAProb3)
+endif(UseCUDAProb3)
+
 install(TARGETS testTabulatedNuOscillator DESTINATION bin)
 
 # Add the local configuration files.
