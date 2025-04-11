@@ -1,0 +1,21 @@
+General:
+  Verbosity: "NONE"
+  CosineZIgnored: false
+  CalculationType: "Unbinned"
+
+OscProbCalcerSetup:
+  ImplementationName: "CUDAProb3"
+  EarthModelFileName: "./Configs/PREM_4layer.dat"
+  UseEarthModelSystematics: false
+  Layers: 4
+  UseProductionHeightsAveraging: false
+  OscChannelMapping:
+    - Entry: "Electron:Electron"
+    - Entry: "Electron:Muon"
+    - Entry: "Electron:Tau"
+    - Entry: "Muon:Electron"
+    - Entry: "Muon:Muon"
+    - Entry: "Muon:Tau"
+    - Entry: "Tau:Electron"
+    - Entry: "Tau:Muon"
+    - Entry: "Tau:Tau"
