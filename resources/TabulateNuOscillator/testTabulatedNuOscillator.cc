@@ -200,6 +200,7 @@ int main(int argc, char** argv) {
         return energyMedian*lognormal(engine);
     };
 
+#ifdef SimpleHistogramming
     // Check binning
     double energyMax = 20.0;
     std::map<int,int> energyHist;
@@ -210,6 +211,7 @@ int main(int argc, char** argv) {
         FillHist(energyHist, energyBin, v);
     }
     PrintHist(energyHist,energyBin);
+#endif
 
     // Check the binning function.
     for (TableEntry& t : gOscTables) {
@@ -345,6 +347,30 @@ int main(int argc, char** argv) {
     elapsed = t2 - t1;
 
     std::cout << "OscProb Elapsed time: " << elapsed.count() << " ms total"
+              << " " << elapsed.count()/iterations << " ms per iteration"
+              << std::endl;
+
+    iterations = 1000;
+    std::cout << "Time " << iterations << " CUDAProb3 iterations"
+              << " (takes several seconds)" << std::endl;
+    // Time the calls
+    t1 = high_resolution_clock::now();
+
+    for (int i=0; i<iterations; ++i) {
+        par = pdgPar;
+        par[4] = 1.0E-4*normal(engine) + 2.5E-3;
+        for (TableEntry& t : gOscTables) {
+            if (t.config.find("CUDAProb3") == std::string::npos) continue;
+            t.updateFunc(t.name.c_str(),
+                         t.table.data(), t.table.size(),
+                         par.data(), par.size());
+        }
+    }
+    t2 = high_resolution_clock::now();
+
+    elapsed = t2 - t1;
+
+    std::cout << "CUDAProb3 Elapsed time: " << elapsed.count() << " ms total"
               << " " << elapsed.count()/iterations << " ms per iteration"
               << std::endl;
 
