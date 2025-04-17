@@ -11,269 +11,200 @@
 #include <tuple>
 #include <cmath>
 
-#include <Oscillator/OscillatorFactory.h>
-#ifdef UseNuFASTLinear
-#warning Including NuFASTLinear in the build
-#include <OscProbCalcer/OscProbCalcer_NuFASTLinear.h>
-#endif
-#ifdef UseProb3ppLinear
-#warning Including Prob3PlusPlus in the build
-#include <OscProbCalcer/OscProbCalcer_Prob3ppLinear.h>
-#endif
-#ifdef UseOscProb
-#warning Including OscProb in the build
-#include <OscProbCalcer/OscProbCalcer_OscProb.h>
-#endif
-#ifdef UseCUDAProb3
-#warning Including CUDAProb3 in the build
-#include <OscProbCalcer/OscProbCalcer_CUDAProb3.h>
-#endif
+#include "TabulatedNuOscillator.hh"
 
+// Add a "local" logging facility
 #define LIB_NAME "TabulatedNuOscillator"
 #ifndef LOUD_AND_PROUD
 #define LOUD_AND_PROUD true
 #endif
 
-#define LIB_COUT if (LOUD_AND_PROUD) std::cout << LIB_NAME << " -- "
+#ifndef LIB_COUT
+#define LIB_COUT if (true) std::cout << LIB_NAME << " -- "
+#endif
+#ifndef LIB_CERR
 #define LIB_CERR std::cerr << "ERROR: " << LIB_NAME << " -- "
-
-namespace {
-    struct OscillationParameters {
-        int ss12;
-        int ss13;
-        int ss23;
-        int dm21;
-        int dm32;
-        int dcp;
-    };
-
-    struct NuOscillatorConfig {
-        std::string name;      // The configuration file to use.
-        OscillationParameters oscParIndex;
-        double oscPath;
-        double oscDensity;
-        double oscElectronDensity;
-        double oscProdHeight;
-        // NuOscillator interface values:
-        //    -- FLOAT_T is defined in OscillatorConstants.h (no namespace).
-#ifdef TABULATED_NUOSCILLATOR_DECONSTRUCTABLE
-        // OK when OscillatorBase can be safely deconstructed (it is iffy)
-        std::unique_ptr<OscillatorBase> oscillator;
-#else
-        // Work around OscillatorBase deconstructor bugs.
-        OscillatorBase* oscillator;
-#endif
-        std::vector<FLOAT_T> energies; // The energies for each bin
-        std::vector<FLOAT_T> zenith;   // The cosines for each bin
-        std::vector<FLOAT_T> oscParams;
-    };
-    using ConfigLookup = std::map<std::string, NuOscillatorConfig>;
-    ConfigLookup configLookup;
-
-    struct TableGlobals {
-        std::string name;           // The table name
-        std::vector<std::string> arguments; // initialization arguments
-        std::string nuOscillatorConfig;     // The configuration file to use.
-        double oscMinEnergy;       // Minimum neutrino energy (GeV)
-        double oscMaxEnergy;       // Maximum neutrino energy (GeV)
-        double oscMaxLoverE;       // Osc table upper limit
-        std::string oscEnergyStep; // The type of step (inverse or logarithmic)
-        int oscEnergyBins;         // Number of energy bins per neutrino type.
-        int oscZenithBins;         // Number of angle bins per neutrino type.
-        OscillationParameters oscParIndex;
-        // NuOscillator interface values:
-        //    -- FLOAT_T is defined in OscillatorConstants.h (no namespace).
-        //
-        // The flavors are defined by NuOscillators with values of
-        // NuOscillator::kElectron==1, NuOscillator::kMuon==2, and
-        // NuOscillator::kTau==3.  Anti-neutrinos are specified using a
-        // negative value.  The oscInitialFlavor and oscFinalFlavor must have
-        // the same sign to be valid.
-        int oscInitialFlavor;       // Flavor of the parent (neg. for anti)
-        int oscFinalFlavor;         // Flaver of the interacting
-        FLOAT_T oscDensity;         // The density along the path (gm/cc)
-        FLOAT_T oscElectronDensity; // The electron density (usually 0.5).
-        FLOAT_T oscPath;            // The path length for the table (km).
-        FLOAT_T oscProdHeight;      // The production height for the table (km).
-        std::vector<FLOAT_T> oscEnergies; // Energies for bins
-        std::vector<FLOAT_T> oscZenith; // Zenith cosines for bins (optional)
-        std::vector<const FLOAT_T*> weightAddress; // NuOscillator to Tabulate map
-    };
-    std::map<std::string,TableGlobals> globalLookup;
-
-    void FillInverseEnergyArray(std::vector<FLOAT_T>& energies,
-                                double eMin, double eMax) {
-        double step = (1.0/eMin - 1.0/eMax)/(energies.size()-1);
-        for (std::size_t bin = 0; bin < energies.size(); ++bin) {
-            double v = 1.0/eMax + step*bin;
-            energies[bin] = 1.0/v;
-        }
-    }
-
-    void FillLogarithmicEnergyArray(std::vector<FLOAT_T>& energies,
-                                    double eMin, double eMax) {
-        double step=(std::log(eMax)-std::log(eMin))/(energies.size()-1);
-        for (std::size_t bin = 0; bin < energies.size(); ++bin) {
-            double v = std::log(eMin) + step*bin;
-            energies[bin] = std::exp(v);
-        }
-    }
-
-    void FillEnergyArray(std::vector<FLOAT_T>& energies,
-                         const std::string& type,
-                         double eMin, double eMax) {
-        if (type.find("inv") != std::string::npos) {
-            FillInverseEnergyArray(energies,eMin,eMax);
-        }
-        else {
-            FillLogarithmicEnergyArray(energies,eMin,eMax);
-        }
-
-        // NuOscillator needs the energies in increasing order.
-        std::sort(energies.begin(), energies.end());
-    }
-
-    void FillZenithArray(std::vector<FLOAT_T>& zenith) {
-        if (zenith.size() < 1) return;
-        if (zenith.size() < 2) {
-            zenith[0] = -1.0;
-            return;
-        }
-        double step = 2.0/(zenith.size()-1);
-        for (std::size_t bin = 0; bin < zenith.size(); ++bin) {
-            zenith[bin] = -1.0 + step*bin;
-        }
-    }
-
-    bool AlmostEqual(double a, double b) {
-        const double diff = std::abs(a-b);
-        const double avg = std::abs(a) + std::abs(b);
-        const double delta = 1E-10;
-        if (diff > delta*avg+delta) return false;
-        return true;
-    }
-
-    void ConfigureNuOscillator(const TableGlobals& globals) {
-        if (globals.nuOscillatorConfig.empty()) return;
-        if (globals.oscEnergies.empty()) return;
-
-        ConfigLookup::iterator config
-            = configLookup.find(globals.nuOscillatorConfig);
-        if (config != configLookup.end()) {
-            // Already initialized, check it's the same.
-            if (globals.oscEnergies.size() != config->second.energies.size()) {
-                LIB_CERR << "Only one energy binning is allowed for "
-                         << globals.nuOscillatorConfig
-                         << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            for (std::size_t i = 0; i < globals.oscEnergies.size(); ++i) {
-                if (AlmostEqual(globals.oscEnergies[i],
-                                config->second.energies[i])) {
-                    continue;
-                }
-                LIB_CERR << "Only one energy binning is allowed for "
-                         << globals.nuOscillatorConfig
-                         << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (globals.oscZenith.size() != config->second.zenith.size()) {
-                LIB_CERR << "Only one zenith binning is allowed for "
-                         << globals.nuOscillatorConfig
-                         << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            for (std::size_t i = 0; i < globals.oscZenith.size(); ++i) {
-                if (AlmostEqual(globals.oscZenith[i],
-                                config->second.zenith[i])) {
-                    continue;
-                }
-                LIB_CERR << "Only one zenith binning is allowed for "
-                         << globals.nuOscillatorConfig
-                         << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (not AlmostEqual(globals.oscPath,
-                                config->second.oscPath)) {
-                LIB_CERR << "Only one path length is allowed for "
-                         << globals.nuOscillatorConfig
-                         << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (not AlmostEqual(globals.oscDensity,
-                                config->second.oscDensity)) {
-                LIB_CERR << "Only one density is allowed for "
-                         << globals.nuOscillatorConfig
-                         << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (not AlmostEqual(globals.oscElectronDensity,
-                                config->second.oscElectronDensity)) {
-                LIB_CERR << "Only one electron density is allowed for "
-                         << globals.nuOscillatorConfig
-                         << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            if (not AlmostEqual(globals.oscProdHeight,
-                                config->second.oscProdHeight)) {
-                LIB_CERR << "Only one production height is allowed for "
-                         << globals.nuOscillatorConfig
-                         << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-
-            return;
-        }
-
-        NuOscillatorConfig& newConfig
-            = configLookup[globals.nuOscillatorConfig];
-        newConfig.name = globals.nuOscillatorConfig;
-        newConfig.energies = globals.oscEnergies;
-        newConfig.zenith = globals.oscZenith;
-        newConfig.oscParIndex = globals.oscParIndex;
-
-        std::unique_ptr<OscillatorFactory> factory
-            = std::make_unique<OscillatorFactory>();
-#ifdef TABULATED_NUOSCILLATOR_DECONSTRUCTABLE
-        newConfig.oscillator.reset(factory->CreateOscillator(newConfig.name));
-#else
-        newConfig.oscillator = factory->CreateOscillator(newConfig.name);
 #endif
 
-        if (newConfig.oscillator->ReturnImplementationName().find("Unbinned_")
-            == std::string::npos) {
-            LIB_CERR << "NuOscillator must use an unbinned configuration"
+// Define the global lookup tables.  These are normally hidden from outside
+// code since they only exist in the shared library (the symbol isn't usually
+// loaded).
+TabulatedNuOscillator::ConfigLookup TabulatedNuOscillator::configLookup;
+TabulatedNuOscillator::GlobalLookup TabulatedNuOscillator::globalLookup;
+
+void TabulatedNuOscillator::FillInverseEnergyArray(
+    std::vector<FLOAT_T>& energies, double eMin, double eMax) {
+    double step = (1.0/eMin - 1.0/eMax)/(energies.size()-1);
+    for (std::size_t bin = 0; bin < energies.size(); ++bin) {
+        double v = 1.0/eMax + step*bin;
+        energies[bin] = 1.0/v;
+    }
+}
+
+void TabulatedNuOscillator::FillLogarithmicEnergyArray(
+    std::vector<FLOAT_T>& energies, double eMin, double eMax) {
+    double step=(std::log(eMax)-std::log(eMin))/(energies.size()-1);
+    for (std::size_t bin = 0; bin < energies.size(); ++bin) {
+        double v = std::log(eMin) + step*bin;
+        energies[bin] = std::exp(v);
+    }
+}
+
+void TabulatedNuOscillator::FillEnergyArray(
+    std::vector<FLOAT_T>& energies, const std::string& type,
+    double eMin, double eMax) {
+    if (type.find("inv") != std::string::npos) {
+        FillInverseEnergyArray(energies,eMin,eMax);
+    }
+    else {
+        FillLogarithmicEnergyArray(energies,eMin,eMax);
+    }
+
+    // NuOscillator needs the energies in increasing order.
+    std::sort(energies.begin(), energies.end());
+}
+
+void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
+    if (zenith.size() < 1) return;
+    if (zenith.size() < 2) {
+        zenith[0] = -1.0;
+        return;
+    }
+    double step = 2.0/(zenith.size()-1);
+    for (std::size_t bin = 0; bin < zenith.size(); ++bin) {
+        zenith[bin] = -1.0 + step*bin;
+    }
+}
+
+bool TabulatedNuOscillator::AlmostEqual(double a, double b) {
+    const double diff = std::abs(a-b);
+    const double avg = std::abs(a) + std::abs(b);
+    const double delta = 1E-10;
+    if (diff > delta*avg+delta) return false;
+    return true;
+}
+
+void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
+    if (globals.nuOscillatorConfig.empty()) return;
+    if (globals.oscEnergies.empty()) return;
+
+    ConfigLookup::iterator config
+        = configLookup.find(globals.nuOscillatorConfig);
+    if (config != configLookup.end()) {
+        // Already initialized, check it's the same.
+        if (globals.oscEnergies.size() != config->second.energies.size()) {
+            LIB_CERR << "Only one energy binning is allowed for "
+                     << globals.nuOscillatorConfig
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        for (std::size_t i = 0; i < globals.oscEnergies.size(); ++i) {
+            if (AlmostEqual(globals.oscEnergies[i],
+                            config->second.energies[i])) {
+                continue;
+            }
+            LIB_CERR << "Only one energy binning is allowed for "
+                     << globals.nuOscillatorConfig
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (globals.oscZenith.size() != config->second.zenith.size()) {
+            LIB_CERR << "Only one zenith binning is allowed for "
+                     << globals.nuOscillatorConfig
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        for (std::size_t i = 0; i < globals.oscZenith.size(); ++i) {
+            if (AlmostEqual(globals.oscZenith[i],
+                            config->second.zenith[i])) {
+                continue;
+            }
+            LIB_CERR << "Only one zenith binning is allowed for "
+                     << globals.nuOscillatorConfig
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (not AlmostEqual(globals.oscPath,
+                            config->second.oscPath)) {
+            LIB_CERR << "Only one path length is allowed for "
+                     << globals.nuOscillatorConfig
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (not AlmostEqual(globals.oscDensity,
+                            config->second.oscDensity)) {
+            LIB_CERR << "Only one density is allowed for "
+                     << globals.nuOscillatorConfig
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (not AlmostEqual(globals.oscElectronDensity,
+                            config->second.oscElectronDensity)) {
+            LIB_CERR << "Only one electron density is allowed for "
+                     << globals.nuOscillatorConfig
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        if (not AlmostEqual(globals.oscProdHeight,
+                            config->second.oscProdHeight)) {
+            LIB_CERR << "Only one production height is allowed for "
+                     << globals.nuOscillatorConfig
                      << std::endl;
             std::exit(EXIT_FAILURE);
         }
 
-        newConfig.oscillator->SetEnergyArrayInCalcer(newConfig.energies);
-        if (not newConfig.oscillator->CosineZIgnored()) {
-            if (newConfig.zenith.empty()) {
-                LIB_CERR << "Zenith angle bins not filled for atmospheric oscillator"
-                        << std::endl;
-                std::exit(EXIT_FAILURE);
-            }
-            newConfig.oscillator->SetCosineZArrayInCalcer(newConfig.zenith);
-        }
-        else if (not newConfig.zenith.empty()) {
-            LIB_CERR << "Zenith angle filled for LBL oscillator"
-                    << std::endl;
+        return;
+    }
+
+    NuOscillatorConfig& newConfig
+        = configLookup[globals.nuOscillatorConfig];
+    newConfig.name = globals.nuOscillatorConfig;
+    newConfig.energies = globals.oscEnergies;
+    newConfig.zenith = globals.oscZenith;
+    newConfig.oscParIndex = globals.oscParIndex;
+
+    std::unique_ptr<OscillatorFactory> factory
+        = std::make_unique<OscillatorFactory>();
+#ifdef TABULATED_NUOSCILLATOR_DECONSTRUCTABLE
+    newConfig.oscillator.reset(factory->CreateOscillator(newConfig.name));
+#else
+    newConfig.oscillator = factory->CreateOscillator(newConfig.name);
+#endif
+
+    if (newConfig.oscillator->ReturnImplementationName().find("Unbinned_")
+        == std::string::npos) {
+        LIB_CERR << "NuOscillator must use an unbinned configuration"
+                 << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    newConfig.oscillator->SetEnergyArrayInCalcer(newConfig.energies);
+    if (not newConfig.oscillator->CosineZIgnored()) {
+        if (newConfig.zenith.empty()) {
+            LIB_CERR << "Zenith angle bins not filled for atmospheric oscillator"
+                     << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        newConfig.oscPath = globals.oscPath;
-        newConfig.oscDensity = globals.oscDensity;
-        newConfig.oscElectronDensity = globals.oscElectronDensity;
-        newConfig.oscProdHeight = globals.oscProdHeight;
-
-        newConfig.oscillator->Setup();
-        newConfig.oscParams.resize(newConfig.oscillator->ReturnNOscParams());
-
-        LIB_COUT << "Configured: " << newConfig.name << std::endl;
+        newConfig.oscillator->SetCosineZArrayInCalcer(newConfig.zenith);
     }
-};
+    else if (not newConfig.zenith.empty()) {
+        LIB_CERR << "Zenith angle filled for LBL oscillator"
+                 << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    newConfig.oscPath = globals.oscPath;
+    newConfig.oscDensity = globals.oscDensity;
+    newConfig.oscElectronDensity = globals.oscElectronDensity;
+    newConfig.oscProdHeight = globals.oscProdHeight;
 
-// This requires string arguments
+    newConfig.oscillator->Setup();
+    newConfig.oscParams.resize(newConfig.oscillator->ReturnNOscParams());
+
+    LIB_COUT << "Configured: " << newConfig.name << std::endl;
+}
+
+// Provide the initializetable entry point required by the GUNDAM tabulated
+// dials.  This requires string arguments:
 //
 // CONFIG <file-name>
 // FLUX_FLAVOR [anti-]{electron,muon,tau}
@@ -294,9 +225,10 @@ extern "C"
 int initializeTable(const char* name, int argc, const char* argv[],
                     int bins) {
     LIB_COUT << "Initialize: " << name << std::endl;
-    TableGlobals& globals = globalLookup[name];
+    TabulatedNuOscillator::TableGlobals& globals = TabulatedNuOscillator::globalLookup[name];
 
     // Set default values.
+    globals.name = name;
     globals.oscEnergyBins = 1000;
     globals.oscZenithBins = 0;
     globals.oscPath = 1300.0; // km
@@ -479,10 +411,12 @@ int initializeTable(const char* name, int argc, const char* argv[],
         globals.oscMaxEnergy = globals.oscPath/minLoverE;
     }
 
-    FillEnergyArray(globals.oscEnergies, globals.oscEnergyStep,
-                    globals.oscMinEnergy,globals.oscMaxEnergy);
+    TabulatedNuOscillator::FillEnergyArray(globals.oscEnergies,
+                                           globals.oscEnergyStep,
+                                           globals.oscMinEnergy,
+                                           globals.oscMaxEnergy);
 
-    FillZenithArray(globals.oscZenith);
+    TabulatedNuOscillator::FillZenithArray(globals.oscZenith);
 
 #ifdef DUMP_ENERGY_BINNING
     // Print the energy binning
@@ -502,7 +436,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
 #endif
 
     ConfigureNuOscillator(globals);
-    NuOscillatorConfig& config = configLookup[globals.nuOscillatorConfig];
+    TabulatedNuOscillator::NuOscillatorConfig& config = TabulatedNuOscillator::configLookup[globals.nuOscillatorConfig];
 
     int zenithIndex = 0;
     double zenith = -999.0;
@@ -527,6 +461,8 @@ int initializeTable(const char* name, int argc, const char* argv[],
     return globals.weightAddress.size();
 }
 
+// Provide the binTable entry point required by the GUNDAM tabulated dials.
+//
 // Find the bin in the table.  The table will always be for a single neutrino
 // type and has the order {(Z0,E0) to (Z0,En); (Z1,E0) to (Z1,En); ...}
 extern "C"
@@ -536,7 +472,7 @@ double binTable(const char* name,
     double energyValue = varv[0];
     double zenithValue = (varc<2) ? -1.0: varv[1];
 
-    TableGlobals& globals = globalLookup[name];
+    TabulatedNuOscillator::TableGlobals& globals = TabulatedNuOscillator::globalLookup[name];
 
     int expectedBins = std::max((std::size_t) 1, globals.oscZenith.size());
     expectedBins = expectedBins * globals.oscEnergies.size();
@@ -594,6 +530,7 @@ double binTable(const char* name,
     return energyBase + energyFrac;
 }
 
+// Provide the updateTable entry point required by the GUNDAM tabulated dials.
 extern "C"
 int updateTable(const char* name,
                 double table[], int bins,
@@ -615,14 +552,14 @@ int updateTable(const char* name,
     for (int i = 0; i<npar; ++i) {
         if (not std::isnan(par[i])) continue;
         LIB_CERR << ": " << name
-                  << " WITH NAN PARAMETER VALUE: " << i
-                  << std::endl;
+                 << " WITH NAN PARAMETER VALUE: " << i
+                 << std::endl;
         std::exit(EXIT_FAILURE);
     }
 
-    TableGlobals& globals = globalLookup[name];
+    TabulatedNuOscillator::TableGlobals& globals = TabulatedNuOscillator::globalLookup[name];
     std::string configName = globals.nuOscillatorConfig;
-    NuOscillatorConfig& config = configLookup[configName];
+    TabulatedNuOscillator::NuOscillatorConfig& config = TabulatedNuOscillator::configLookup[configName];
 
     bool oscParamsFilled = false;
     ////////////////////////////////////////////////////////////////////////
