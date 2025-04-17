@@ -180,8 +180,8 @@ int main(int argc, char** argv) {
 #ifdef TestCUDAProb3
 #warning "Test CUDAProb3"
     {
-        std::string enr{"500"};
-        std::string zen{"500"};
+        std::string enr{"100"};
+        std::string zen{"100"};
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enr,zen);
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enr,zen);
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enr,zen);
