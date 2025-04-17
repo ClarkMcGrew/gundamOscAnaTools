@@ -70,10 +70,26 @@ void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
         zenith[0] = -1.0;
         return;
     }
-    double step = 2.0/(zenith.size()-1);
-    for (std::size_t bin = 0; bin < zenith.size(); ++bin) {
-        zenith[bin] = -1.0 + step*bin;
+    double minPath = RoughZenithPath(1.0);
+    double maxPath = RoughZenithPath(-1.0);
+    double step = (maxPath - minPath)/(zenith.size()-1);
+    int bin = 0;
+    double path = minPath;
+    for (double c = 1.0; c > -1.0; c -= 1E-8) {
+        double p = RoughZenithPath(c);
+        if (p - path < step) continue;
+        zenith[bin++] = c;
+        path = p;
     }
+    zenith[zenith.size()-1] = -1.0;
+    std::sort(zenith.begin(), zenith.end());
+}
+
+double TabulatedNuOscillator::RoughZenithPath(double cosz) {
+    const double Rd{6371}; //Average Earth Radius in km (average)
+    const double Rp{Rd + 30.0};
+    double L = std::sqrt(Rd*Rd*(cosz*cosz-1.0) + Rp*Rp) - Rd*cosz;
+    return L;
 }
 
 bool TabulatedNuOscillator::AlmostEqual(double a, double b) {

@@ -120,6 +120,8 @@ namespace TabulatedNuOscillator {
 
     void FillZenithArray(std::vector<FLOAT_T>& zenith);
 
+    double RoughZenithPath(double cosz);
+
     bool AlmostEqual(double a, double b);
 
     void ConfigureNuOscillator(const TableGlobals& globals);
