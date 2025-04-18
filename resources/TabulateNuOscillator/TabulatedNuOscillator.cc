@@ -73,13 +73,20 @@ void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
     double minPath = RoughZenithPath(1.0);
     double maxPath = RoughZenithPath(-1.0);
     double step = (maxPath - minPath)/(zenith.size()-1);
-    int bin = 0;
     double path = minPath;
-    for (double c = 1.0; c > -1.0; c -= 1E-8) {
+    double lastC = 1.0;
+    int bin = 0;
+    zenith[bin++] = lastC;
+    for (double c = zenith[0]; c > -1.0; c -= 1E-8) {
         double p = RoughZenithPath(c);
-        if (p - path < step) continue;
+        if (lastC - c < 0.05 &&  p - path < step) continue;
+        else if (p-path < step) {
+            step = (maxPath - p) / (zenith.size() - bin - 1);
+        }
         zenith[bin++] = c;
+        lastC = c;
         path = p;
+        if (bin >= zenith.size()) break;
     }
     zenith[zenith.size()-1] = -1.0;
     std::sort(zenith.begin(), zenith.end());
