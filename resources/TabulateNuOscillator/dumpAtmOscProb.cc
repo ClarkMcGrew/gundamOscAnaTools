@@ -11,6 +11,7 @@
 
 #include <TGraph.h>
 #include <TGraph2D.h>
+#include <TProfile2D.h>
 #include <TPad.h>
 
 #include "TabulatedNuOscillator.hh"
@@ -184,31 +185,75 @@ void PlotProbabilities(std::string name, OscillatorBase* oscillator,
                        std::vector<FLOAT_T> params) {
     std::cout << "    Plot " << name << std::endl;
     try {
+        std::ostringstream title;
+        title << "Oscillation probability for " << flux << " to " << inter;
+
         oscillator->CalculateProbabilities(params);
         TGraph2D energyZenithPlot;
         energyZenithPlot.SetNpx(std::min((std::size_t)500,energies.size()));
         energyZenithPlot.SetNpy(std::min((std::size_t)500,zenith.size()));
-        std::ostringstream title;
-        title << "Oscillation probability for " << flux << " to " << inter;
+        TGraph2D energyCosZPlot;
+        energyCosZPlot.SetNpx(std::min((std::size_t)500,energies.size()));
+        energyCosZPlot.SetNpy(std::min((std::size_t)500,zenith.size()));
         int i = 0;
+        int j = 0;
         for (double e : energies) {
             for (double z: zenith) {
                 double p = oscillator->ReturnOscillationProbability(
                     oscInitialFlavor, oscFinalFlavor, e, z);
                 energyZenithPlot.SetPoint(i++, std::log10(e),
-                                      RoughZenithPath(z),
-                                      p);
+                                          RoughZenithPath(z),
+                                          p);
+                energyCosZPlot.SetPoint(j++, std::log10(e),
+                                        z,
+                                        p);
             }
         }
         energyZenithPlot.Draw("colz");
         energyZenithPlot.SetTitle(title.str().c_str());
         energyZenithPlot.GetXaxis()->SetTitle("Energy (log10(GeV))");
-        // energyZenithPlot.GetYaxis()->SetTitle("Zenith Angle (cos(theta))");
         energyZenithPlot.GetYaxis()->SetTitle("Rough Path length (km)");
+        gPad->Update();
+        // energyZenithPlot.GetYaxis()->SetTitle("Zenith Angle (cos(theta))");
+        {
+            std::ostringstream fName;
+            fName << "OscProbLength-" << flux
+                  << "-" << inter
+                  << ".png";
+            gPad->Print(fName.str().c_str());
+        }
+
+        energyCosZPlot.Draw("colz");
+        energyCosZPlot.SetTitle(title.str().c_str());
+        energyCosZPlot.GetXaxis()->SetTitle("Energy (log10(GeV))");
+        energyCosZPlot.GetYaxis()->SetTitle("Rough Path length (km)");
+        gPad->Update();
+        // energyCosZPlot.GetYaxis()->SetTitle("Zenith Angle (cos(theta))");
+        {
+            std::ostringstream fName;
+            fName << "OscProbCosZ-" << flux
+                  << "-" << inter
+                  << ".png";
+            gPad->Print(fName.str().c_str());
+        }
+
+        TProfile2D oscProfile("OscProbProfile",title.str().c_str(),
+                              50, -1.0, 2.01, 20, -1.0, 1.0);
+        for (double e = 0.1; e < 100.0; e *=1.01) {
+            for (double z = -1.0; z < 1.0; z += 0.01) {
+                double p = energyCosZPlot.Interpolate(std::log10(e),z);
+                oscProfile.Fill(std::log10(e),z,p);
+            }
+        }
+
+        oscProfile.Draw("colz");
+        oscProfile.SetTitle(title.str().c_str());
+        oscProfile.GetXaxis()->SetTitle("Energy (log10(GeV))");
+        oscProfile.GetYaxis()->SetTitle("Zenith Angle (cosine)");
         gPad->Update();
         {
             std::ostringstream fName;
-            fName << "OscProb-" << flux
+            fName << "OscProfile-" << flux
                   << "-" << inter
                   << ".png";
             gPad->Print(fName.str().c_str());
