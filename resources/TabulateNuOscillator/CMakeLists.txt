@@ -43,8 +43,13 @@ add_library(TabulatedNuOscillator SHARED TabulatedNuOscillator.cc)
 target_link_libraries(TabulatedNuOscillator PUBLIC NuOscillator::All)
 install(TARGETS TabulatedNuOscillator DESTINATION lib)
 
+# Add the local configuration files.
+install(FILES Configs/GUNDAM_NuFASTLinear DESTINATION Configs)
+install(FILES Configs/GUNDAM_OscProb DESTINATION Configs)
+
 # A test executable
 add_executable(testTabulatedNuOscillator testTabulatedNuOscillator.cc)
+install(TARGETS testTabulatedNuOscillator DESTINATION bin)
 if (UseNuFASTLinear)
   target_compile_definitions(testTabulatedNuOscillator PUBLIC TestNUFAST)
 endif(UseNuFASTLinear)
@@ -54,9 +59,21 @@ endif(UseOscProb)
 if (UseCUDAProb3)
   target_compile_definitions(testTabulatedNuOscillator PUBLIC TestCUDAProb3)
 endif(UseCUDAProb3)
+if (UseOscProb)
+  target_compile_definitions(testTabulatedNuOscillator PUBLIC TestOscProb)
+endif(UseOscProb)
+if (UseCUDAProb3)
+  target_compile_definitions(testTabulatedNuOscillator PUBLIC TestCUDAProb3)
+endif(UseCUDAProb3)
 
-install(TARGETS testTabulatedNuOscillator DESTINATION bin)
 
-# Add the local configuration files.
-install(FILES Configs/GUNDAM_NuFASTLinear DESTINATION Configs)
-install(FILES Configs/GUNDAM_OscProb DESTINATION Configs)
+# An executable to draw the atmospheric oscillation probabilites
+add_executable(dumpAtmOscProb dumpAtmOscProb.cc)
+install(TARGETS dumpAtmOscProb DESTINATION bin)
+target_link_libraries(dumpAtmOscProb PUBLIC NuOscillator::All)
+if (UseOscProb)
+  target_compile_definitions(dumpAtmOscProb PUBLIC TestOscProb)
+endif(UseOscProb)
+if (UseCUDAProb3)
+  target_compile_definitions(dumpAtmOscProb PUBLIC TestCUDAProb3)
+endif(UseCUDAProb3)

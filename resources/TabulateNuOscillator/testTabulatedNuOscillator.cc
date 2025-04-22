@@ -165,6 +165,7 @@ int main(int argc, char** argv) {
 #warning "Not testing NUFAST"
 #endif
 
+#undef TestOscProb
 #ifdef TestOscProb
 #warning "Test OscProb"
     AddTable("./Configs/GUNDAM_OscProb","muon","muon","200","40");
@@ -179,12 +180,16 @@ int main(int argc, char** argv) {
 
 #ifdef TestCUDAProb3
 #warning "Test CUDAProb3"
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon","200","40");
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron","200","40");
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau","200","40");
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron","200","40");
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon","200","40");
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau","200","40");
+    {
+        std::string enr{"500"};
+        std::string zen{"500"};
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enr,zen);
+    }
 #else
 #warning "Not testing CUDAProb3"
 #endif
@@ -350,7 +355,7 @@ int main(int argc, char** argv) {
               << " " << elapsed.count()/iterations << " ms per iteration"
               << std::endl;
 
-    iterations = 1000;
+    iterations = 100;
     std::cout << "Time " << iterations << " CUDAProb3 iterations"
               << " (takes several seconds)" << std::endl;
     // Time the calls
