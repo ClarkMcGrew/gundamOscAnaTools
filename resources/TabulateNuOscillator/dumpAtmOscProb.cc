@@ -48,7 +48,9 @@ std::vector<TableEntry> gOscTables;
 void AddTable(std::string config,
               std::string flux,
               std::string interaction,
-              std::string energyBins, std::string zenithBins) {
+              std::string energyStep,
+              std::string energyBins,
+              std::string zenithBins) {
     gOscTables.emplace_back();
     std::cout << "Add table " << gOscTables.size() << std::endl;
 
@@ -86,7 +88,7 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("INTERACTION_FLAVOR "+tableEntry.interaction);
     initFunc_arguments.push_back("PARAMETERS SS12,SS23,SS13,DM21,DM32,DCP");
     initFunc_arguments.push_back("ENERGY_BINS "+energyBins);
-    initFunc_arguments.push_back("ENERGY_STEP inverse");
+    initFunc_arguments.push_back("ENERGY_STEP "+energyStep);
     initFunc_arguments.push_back("MIN_ENERGY 0.10");
     initFunc_arguments.push_back("MAX_ENERGY 100.0");
     if (not zenithBins.empty()) {
@@ -238,9 +240,9 @@ void PlotProbabilities(std::string name, OscillatorBase* oscillator,
         }
 
         TProfile2D oscProfile("OscProbProfile",title.str().c_str(),
-                              50, -1.0, 2.01, 20, -1.0, 1.0);
-        for (double e = 0.1; e < 100.0; e *=1.01) {
-            for (double z = -1.0; z < 1.0; z += 0.01) {
+                              40, -1.0, 2.01, 40, -1.0, 1.0);
+        for (double e = 0.1; e < 100.0; e *=1.005) {
+            for (double z = -1.0; z < 1.0; z += 0.005) {
                 double p = energyCosZPlot.Interpolate(std::log10(e),z);
                 oscProfile.Fill(std::log10(e),z,p);
             }
@@ -309,33 +311,37 @@ void PlotProbabilities(std::string name, OscillatorBase* oscillator,
 }
 
 int main(int argc, char** argv) {
+    std::string enrStep{"inverse"};
     std::string enr{"100"};
     std::string zen{"100"};
     if (argc > 1) enr = argv[1];
     if (argc > 2) zen = argv[2];
+    if (argc > 3) enrStep = argv[3];
 
-    std::cout << "Generating a " << enr << " x " << zen << " grid" <<std::endl;
+    std::cout << "Generating a " << enr
+              << " x " << zen
+              << " " << enrStep << " grid" <<std::endl;
 
 #ifdef NOTTestOscProb
 #warning "Test OscProb"
-    AddTable("./Configs/GUNDAM_OscProb","muon","muon",enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","muon","electron",enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","muon","tau",enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","electron","electron",enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","electron","muon",enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","electron","tau",enr,zen);
+    AddTable("./Configs/GUNDAM_OscProb","muon","muon",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_OscProb","muon","electron",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_OscProb","muon","tau",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_OscProb","electron","electron",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_OscProb","electron","muon",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_OscProb","electron","tau",enrStep,enr,zen);
 #else
 #warning "Not testing OscProb"
 #endif
 
 #ifdef TestCUDAProb3
 #warning "Test CUDAProb3"
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enr,zen);
+    AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enrStep,enr,zen);
+    AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enrStep,enr,zen);
 #else
 #warning "Not testing CUDAProb3"
 #endif
