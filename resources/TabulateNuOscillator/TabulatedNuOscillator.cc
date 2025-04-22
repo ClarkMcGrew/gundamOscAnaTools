@@ -43,9 +43,11 @@ void TabulatedNuOscillator::FillInverseEnergyArray(
 
 void TabulatedNuOscillator::FillLogarithmicEnergyArray(
     std::vector<FLOAT_T>& energies, double eMin, double eMax) {
-    double step=(std::log(eMax)-std::log(eMin))/(energies.size()-1);
+    double eMaxLog = std::log(eMax);
+    double eMinLog = std::log(eMin);
+    double step=(eMaxLog - eMinLog)/(energies.size()-1);
     for (std::size_t bin = 0; bin < energies.size(); ++bin) {
-        double v = std::log(eMin) + step*bin;
+        double v = eMinLog + step*bin;
         energies[bin] = std::exp(v);
     }
 }
@@ -62,6 +64,8 @@ void TabulatedNuOscillator::FillEnergyArray(
 
     // NuOscillator needs the energies in increasing order.
     std::sort(energies.begin(), energies.end());
+    energies[0] = eMin;
+    energies[energies.size()-1] = eMax;
 }
 
 void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
@@ -73,13 +77,14 @@ void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
     double minPath = RoughZenithPath(1.0);
     double maxPath = RoughZenithPath(-1.0);
     double step = (maxPath - minPath)/(zenith.size()-1);
+    double maxCosZStep = 0.5/std::sqrt(zenith.size());
     double path = minPath;
     double lastC = 1.0;
     int bin = 0;
     zenith[bin++] = lastC;
     for (double c = zenith[0]; c > -1.0; c -= 1E-8) {
         double p = RoughZenithPath(c);
-        if (lastC - c < 0.05 &&  p - path < step) continue;
+        if (lastC - c < maxCosZStep &&  p - path < step) continue;
         else if (p-path < step) {
             step = (maxPath - p) / (zenith.size() - bin - 1);
         }
@@ -88,8 +93,9 @@ void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
         path = p;
         if (bin >= zenith.size()) break;
     }
-    zenith[zenith.size()-1] = -1.0;
     std::sort(zenith.begin(), zenith.end());
+    zenith[0] = -1.0;
+    zenith[zenith.size()-1] = 1.0;
 }
 
 double TabulatedNuOscillator::RoughZenithPath(double cosz) {
