@@ -478,8 +478,10 @@ int initializeTable(const char* name, int argc, const char* argv[],
                 = config.oscillator->ReturnWeightPointer(
                     globals.oscInitialFlavor,globals.oscFinalFlavor,
                     energy, zenith);
-            globals.weightAddress.emplace_back(address);
-        }
+            globals.weightAddress.emplace_back(
+                TabulatedNuOscillator::TableGlobals::OscWeight(
+                    {globals.weightAddress.size(), address, 1.0}));
+                }
         ++zenithIndex;
         if (zenithIndex < globals.oscZenith.size()) continue;
         break;
@@ -722,24 +724,32 @@ int updateTable(const char* name,
         std::exit(EXIT_FAILURE);
     }
 
-    // Copy the table.
-    if (bins != globals.weightAddress.size()) {
-        LIB_CERR << "Mismatched table size"
-                 << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
 
-    for (int i=0; i<bins; ++i) {
-        double v = *globals.weightAddress[i];
+    for (int i = 0; i<bins; ++i) table[i] = 0.0;
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight : globals.weightAddress) {
+        const std::size_t i = weight.index;
+        const double v = *weight.address;
+        const double w = weight.weight;
+        if (i < 0 or bins <= i or w < 0.0 or w > 1.0) {
+            LIB_CERR << "Error filling " << name << std::endl;
+            LIB_CERR << "    Expecting bin: 0 <= " << i << " < " << bins
+                     << std::endl;
+            LIB_CERR << "    Expecting weight 0.0 < " << w << " < " << 1.0
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         if (not std::isfinite(v) or v < 0.0 or v > 1.0) {
             LIB_CERR << "Error filling " << name << std::endl;
             for (int j = 0; j < npar; ++j) {
-                LIB_CERR << "   Parameter " << j << " is " << par[j] << std::endl;
+                LIB_CERR << "   Parameter " << j
+                         << " is " << par[j] << std::endl;
             }
-            LIB_CERR << "Weight is " << v << std::endl;
+            LIB_CERR << "Table bin is " << i << std::endl;
+            LIB_CERR << "Oscillation weight is " << v << std::endl;
+            LIB_CERR << "Smoothing weight is " << w << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        table[i] = v;
+        table[i] += w*v;
     }
 
 #ifdef DUMP_UPDATE_TABLE
