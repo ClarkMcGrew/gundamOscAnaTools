@@ -86,6 +86,8 @@ namespace TabulatedNuOscillator {
         std::string oscEnergyStep; // The type of step (inverse or logarithmic)
         int oscEnergyBins;         // Number of energy bins per neutrino type.
         int oscZenithBins;         // Number of angle bins per neutrino type.
+        int oscEnergySmooth;       // Bins to smooth over for energy
+        int oscZenithSmooth;       // Bins to smooth over for zenith
         OscillationParameters oscParIndex;
         // NuOscillator interface values:
         //    -- FLOAT_T is defined in OscillatorConstants.h (no namespace).

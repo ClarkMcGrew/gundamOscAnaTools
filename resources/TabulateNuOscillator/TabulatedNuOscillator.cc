@@ -242,9 +242,10 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 // ENERGY_BINS <integer> -- Number of energy bins for each neutrino type
 // MIN_ENERGY <double> -- Minimum neutrino energy in GeV
 // MAX_ENERGY <double> -- Maximum neutrino energy in GeV
-// ENERGY_STEP {inverse,logarithmic} -- The binning to use for energy
+// ENERGY_STEP {inverse,logarithmic} -- The energy binning to use (def: inverse)
+// ENERGY_SMOOTH <integer> -- Number of energy bins to smooth over (def: 0)
 // ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
-// ENERGY_STEP inverse or logarithmic -- The type of energy step.
+// ZENITH_SMOOTH <integer> -- Number of zenith bins to smooth over (def: 0).
 // DENSITY <double>    -- Density in gm/cc
 // ELECTRON_DENSITY <double> -- Almost always 0.5
 // PATH <double>       -- Path length in kilometers (for LBL)
@@ -252,7 +253,7 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 //
 extern "C"
 int initializeTable(const char* name, int argc, const char* argv[],
-                    int bins) {
+                    int suggestedBins) {
     LIB_COUT << "Initialize: " << name << std::endl;
     TabulatedNuOscillator::TableGlobals& globals = TabulatedNuOscillator::globalLookup[name];
 
@@ -266,6 +267,8 @@ int initializeTable(const char* name, int argc, const char* argv[],
     globals.oscDensity = 2.6; // gm/cc
     globals.oscElectronDensity = 0.5;
     globals.oscEnergyStep = "inverse";
+    globals.oscEnergySmooth = 0;
+    globals.oscZenithSmooth = 0;
 
     for (int i = 0; i < argc; ++i) {
         LIB_COUT << "Argument: " << argv[i] << std::endl;
@@ -360,11 +363,20 @@ int initializeTable(const char* name, int argc, const char* argv[],
         break;
     }
 
-    // Get the type of step for the energy array.
+    // Get the type of step for the energies
     for (std::string arg: globals.arguments) {
         if (arg.find("ENERGY_STEP") != 0) continue;
         std::istringstream tmp(arg);
         tmp >> arg >> globals.oscEnergyStep;
+        break;
+    }
+
+
+    // Get the smoothing for the osc weights in energies
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ENERGY_SMOOTH") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscEnergySmooth;
         break;
     }
 
@@ -373,6 +385,14 @@ int initializeTable(const char* name, int argc, const char* argv[],
         if (arg.find("ZENITH_BINS") != 0) continue;
         std::istringstream tmp(arg);
         tmp >> arg >> globals.oscZenithBins;
+        break;
+    }
+
+    // Get the smoothing for the osc weights in energies
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ZENITH_SMOOTH") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscZenithSmooth;
         break;
     }
 
@@ -467,29 +487,66 @@ int initializeTable(const char* name, int argc, const char* argv[],
     ConfigureNuOscillator(globals);
     TabulatedNuOscillator::NuOscillatorConfig& config = TabulatedNuOscillator::configLookup[globals.nuOscillatorConfig];
 
+    int zSmooth = globals.oscZenithSmooth;
+    int eSmooth = globals.oscEnergySmooth;
     int zenithIndex = 0;
-    double zenith = -999.0;
-    while (true) {
-        if (zenithIndex < globals.oscZenith.size()) {
-            zenith = globals.oscZenith[zenithIndex];
-        }
-        for (double energy : globals.oscEnergies) {
-            const FLOAT_T* address
-                = config.oscillator->ReturnWeightPointer(
-                    globals.oscInitialFlavor,globals.oscFinalFlavor,
-                    energy, zenith);
-            globals.weightAddress.emplace_back(
-                TabulatedNuOscillator::TableGlobals::OscWeight(
-                    {globals.weightAddress.size(), address, 1.0}));
+    // The zenith loops are done like this since oscZenith.size() might be
+    // zero.
+    do {
+        int iz = std::max(0,zenithIndex-zSmooth);
+        do {
+            double zenith = -999.0;
+            if (iz < globals.oscZenith.size()) {
+                zenith = globals.oscZenith[iz];
+            }
+            for (int energyIndex = 0;
+                 energyIndex < (int) globals.oscEnergies.size();
+                 ++energyIndex) {
+                std::size_t bin
+                    = zenithIndex*globals.oscEnergies.size() + energyIndex;
+                for (int ie = std::max(0, energyIndex - eSmooth);
+                     ie < std::min((int) globals.oscEnergies.size(),
+                                   energyIndex + eSmooth + 1);
+                     ++ie) {
+                    double energy = globals.oscEnergies[energyIndex];
+                    const FLOAT_T* address
+                        = config.oscillator->ReturnWeightPointer(
+                            globals.oscInitialFlavor,globals.oscFinalFlavor,
+                            energy, zenith);
+                    globals.weightAddress.emplace_back(
+                        TabulatedNuOscillator::TableGlobals::OscWeight(
+                            {bin, address, 1.0}));
                 }
-        ++zenithIndex;
-        if (zenithIndex < globals.oscZenith.size()) continue;
-        break;
+            }
+        } while (++iz < std::min((int) globals.oscZenith.size(),
+                                 zenithIndex+zSmooth+1));
+    } while (++zenithIndex < globals.oscZenith.size());
+
+    // Find the maximum bin in the table
+    std::size_t bins = 0;
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
+             : globals.weightAddress) {
+        bins = std::max(bins,weight.index+1);
     }
 
-    LIB_COUT << "Table size: " << globals.weightAddress.size() << std::endl;
+    // Find the sum of the weights for a particular bin.
+    std::vector<double> work(bins);
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
+             : globals.weightAddress) {
+        work[weight.index] += weight.weight;
+    }
 
-    return globals.weightAddress.size();
+    // Rescale the weights so they sum to one
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
+             : globals.weightAddress) {
+        if (work[weight.index] > 0.0) weight.weight /= work[weight.index];
+    }
+
+    LIB_COUT << "Oscillation size: " << globals.weightAddress.size()
+             << " Table size: " << bins
+             << " (suggested size: " << suggestedBins << ")" << std::endl;
+
+    return bins;
 }
 
 // Provide the binTable entry point required by the GUNDAM tabulated dials.
@@ -724,12 +781,13 @@ int updateTable(const char* name,
         std::exit(EXIT_FAILURE);
     }
 
-
     for (int i = 0; i<bins; ++i) table[i] = 0.0;
-    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight : globals.weightAddress) {
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
+             : globals.weightAddress) {
         const std::size_t i = weight.index;
         const double v = *weight.address;
         const double w = weight.weight;
+#ifdef ERROR_CHECKING
         if (i < 0 or bins <= i or w < 0.0 or w > 1.0) {
             LIB_CERR << "Error filling " << name << std::endl;
             LIB_CERR << "    Expecting bin: 0 <= " << i << " < " << bins
@@ -749,6 +807,7 @@ int updateTable(const char* name,
             LIB_CERR << "Smoothing weight is " << w << std::endl;
             std::exit(EXIT_FAILURE);
         }
+#endif
         table[i] += w*v;
     }
 
