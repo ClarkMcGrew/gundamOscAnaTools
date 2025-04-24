@@ -77,9 +77,11 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("ENERGY_BINS "+energyBins);
     initFunc_arguments.push_back("ENERGY_STEP inverse");
     initFunc_arguments.push_back("MIN_ENERGY 0.50");
-    initFunc_arguments.push_back("MAX_ENERGY 50.0");
+    initFunc_arguments.push_back("MAX_ENERGY 100.0");
     if (not zenithBins.empty()) {
         initFunc_arguments.push_back("ZENITH_BINS "+zenithBins);
+        initFunc_arguments.push_back("ZENITH_SMOOTH 1");
+        initFunc_arguments.push_back("ENERGY_SMOOTH 1");
     }
     initFunc_arguments.push_back("DENSITY 2.6");
     initFunc_arguments.push_back("PATH 1300.0");
@@ -181,8 +183,8 @@ int main(int argc, char** argv) {
 #ifdef TestCUDAProb3
 #warning "Test CUDAProb3"
     {
-        std::string enr{"500"};
-        std::string zen{"500"};
+        std::string enr{"300"};
+        std::string zen{"300"};
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enr,zen);
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enr,zen);
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enr,zen);
