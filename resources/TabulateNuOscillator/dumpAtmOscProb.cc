@@ -93,6 +93,8 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("MAX_ENERGY 100.0");
     if (not zenithBins.empty()) {
         initFunc_arguments.push_back("ZENITH_BINS "+zenithBins);
+        initFunc_arguments.push_back("ZENITH_SMOOTH 0"); // Set non-zero to smooth zenith
+        initFunc_arguments.push_back("ENERGY_SMOOTH 0"); // Set non-zero to smooth energy
     }
     initFunc_arguments.push_back("DENSITY 2.6");
     initFunc_arguments.push_back("PATH 1300.0");
@@ -178,8 +180,28 @@ double RoughZenithPath(double cosz) {
     return L;
 }
 
+double TableLookup(int enr, int zen,
+                   std::vector<double>& table,
+                   std::vector<FLOAT_T> energies,
+                   std::vector<FLOAT_T> zenith) {
+    if ( 0 < zen and zenith.size() <= zen) {
+        std::cout << "Zenith angle bin out of bounds: " << zen << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if (enr < 0 or energies.size() <= enr) {
+        std::cout << "Energy bin out of bounds: " << enr << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    int index = zen*energies.size() + enr;
+    if (index < 0 or table.size() <= index) {
+        std::cout << "Table index out of bounds: " << index << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    return table.at(index);
+}
 
-void PlotProbabilities(std::string name, OscillatorBase* oscillator,
+void PlotProbabilities(std::string name, std::vector<double> table,
+                       OscillatorBase* oscillator,
                        std::string flux, int oscInitialFlavor,
                        std::string inter, int oscFinalFlavor,
                        std::vector<FLOAT_T> energies,
@@ -190,25 +212,27 @@ void PlotProbabilities(std::string name, OscillatorBase* oscillator,
         std::ostringstream title;
         title << "Oscillation probability for " << flux << " to " << inter;
 
-        oscillator->CalculateProbabilities(params);
         TGraph2D energyZenithPlot;
         energyZenithPlot.SetNpx(std::min((std::size_t)500,energies.size()));
         energyZenithPlot.SetNpy(std::min((std::size_t)500,zenith.size()));
         TGraph2D energyCosZPlot;
         energyCosZPlot.SetNpx(std::min((std::size_t)500,energies.size()));
         energyCosZPlot.SetNpy(std::min((std::size_t)500,zenith.size()));
-        int i = 0;
-        int j = 0;
-        for (double e : energies) {
-            for (double z: zenith) {
-                double p = oscillator->ReturnOscillationProbability(
-                    oscInitialFlavor, oscFinalFlavor, e, z);
-                energyZenithPlot.SetPoint(i++, std::log10(e),
-                                          RoughZenithPath(z),
-                                          p);
-                energyCosZPlot.SetPoint(j++, std::log10(e),
-                                        z,
-                                        p);
+        {
+            int ezPlot = 0;
+            int ecPlot = 0;
+            for (int i = 0; i < energies.size(); ++i) {
+                for (int j = 0; j < zenith.size(); ++j) {
+                    double e = energies[i];
+                    double z = zenith[j];
+                    double p = TableLookup(i,j,table,energies,zenith);
+                    energyZenithPlot.SetPoint(ezPlot++, std::log10(e),
+                                              RoughZenithPath(z),
+                                              p);
+                    energyCosZPlot.SetPoint(ecPlot++, std::log10(e),
+                                            z,
+                                            p);
+                }
             }
         }
         energyZenithPlot.Draw("colz");
@@ -265,13 +289,12 @@ void PlotProbabilities(std::string name, OscillatorBase* oscillator,
         zenithPlot.SetTitle(title.str().c_str());
         zenithPlot.GetYaxis()->SetTitle("Probability at 100 MeV");
         zenithPlot.GetXaxis()->SetTitle("Path Length (km)");
-        i = 0;
-        for (double z: zenith) {
-            double p = oscillator->ReturnOscillationProbability(
-                oscInitialFlavor, oscFinalFlavor, 0.1, z);
+        for (int i = 0; i < zenith.size(); ++i) {
+            double z = zenith[i];
             double l = RoughZenithPath(z);
-            if (l < 12000) continue;
-            zenithPlot.SetPoint(i++, l, p);
+            double p = TableLookup(0,i,table,energies,zenith);
+            if (l < 12000) break;
+            zenithPlot.SetPoint(i, l, p);
         }
         zenithPlot.Draw("AC*");
         gPad->Update();
@@ -287,12 +310,11 @@ void PlotProbabilities(std::string name, OscillatorBase* oscillator,
         energyPlot.SetTitle(title.str().c_str());
         energyPlot.GetYaxis()->SetTitle("Probabilty at cosZ of -1");
         energyPlot.GetXaxis()->SetTitle("Energy (GeV)");
-        i = 0;
-        for (double e: energies) {
-            if (e > 0.120) continue;
-            double p = oscillator->ReturnOscillationProbability(
-                oscInitialFlavor, oscFinalFlavor, e, -1.0);
-            energyPlot.SetPoint(i++, e, p);
+        for (int i = 0; i < energies.size(); ++i) {
+            double e = energies[i];
+            double p = TableLookup(i,0,table,energies,zenith);
+            if (e > 0.120) break;;
+            energyPlot.SetPoint(i, e, p);
         }
         energyPlot.Draw("AC*");
         gPad->Update();
@@ -372,7 +394,11 @@ int main(int argc, char** argv) {
         TabulatedNuOscillator::TableGlobals& global = (*t.globals)[t.name];
         std::cout << "  global name: " << global.name << std::endl;
         TabulatedNuOscillator::NuOscillatorConfig& config = (*t.configs)[global.nuOscillatorConfig];
-        PlotProbabilities(global.name, config.oscillator,
+        for (double e : config.energies) {
+            std::cout << " " << e;
+        }
+        std::cout << std::endl;
+        PlotProbabilities(global.name, t.table, config.oscillator,
                           t.flux, global.oscInitialFlavor,
                           t.interaction, global.oscFinalFlavor,
                           config.energies, config.zenith, config.oscParams);
