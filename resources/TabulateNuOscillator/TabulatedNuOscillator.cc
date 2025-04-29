@@ -34,11 +34,22 @@ TabulatedNuOscillator::GlobalLookup TabulatedNuOscillator::globalLookup;
 
 void TabulatedNuOscillator::FillInverseEnergyArray(
     std::vector<FLOAT_T>& energies, double eMin, double eMax) {
+    const double minFraction = 0.8; // about 20 logarithmic steps.
     double step = (1.0/eMin - 1.0/eMax)/(energies.size()-1);
-    for (std::size_t bin = 0; bin < energies.size(); ++bin) {
-        double v = 1.0/eMax + step*bin;
-        energies[bin] = 1.0/v;
-    }
+    std::size_t bin = 0;
+    double lastInvE = 1.0/eMax;
+    energies[bin++] = 1.0/lastInvE;
+    while (bin < energies.size()) {
+        double invE = lastInvE + step;
+        if (1.0/invE < minFraction/lastInvE) {
+            invE = lastInvE/minFraction;
+            if (bin+1 < energies.size()) {
+                step = (1.0/eMin - invE)/(energies.size() - bin);
+            }
+        }
+        energies[bin++] = 1.0/invE;
+        lastInvE = invE;
+    };
 }
 
 void TabulatedNuOscillator::FillLogarithmicEnergyArray(
@@ -46,10 +57,11 @@ void TabulatedNuOscillator::FillLogarithmicEnergyArray(
     double eMaxLog = std::log(eMax);
     double eMinLog = std::log(eMin);
     double step=(eMaxLog - eMinLog)/(energies.size()-1);
-    for (std::size_t bin = 0; bin < energies.size(); ++bin) {
+    std::size_t bin = 0;
+    do {
         double v = eMinLog + step*bin;
-        energies[bin] = std::exp(v);
-    }
+        energies[bin++] = std::exp(v);
+    } while (bin < energies.size());
 }
 
 void TabulatedNuOscillator::FillEnergyArray(
@@ -100,7 +112,7 @@ void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
 
 double TabulatedNuOscillator::RoughZenithPath(double cosz) {
     const double Rd{6371}; //Average Earth Radius in km (average)
-    const double Rp{Rd + 30.0};
+    const double Rp{Rd + 20.0};
     double L = std::sqrt(Rd*Rd*(cosz*cosz-1.0) + Rp*Rp) - Rd*cosz;
     return L;
 }
