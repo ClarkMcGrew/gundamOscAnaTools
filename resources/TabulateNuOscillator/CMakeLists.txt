@@ -22,12 +22,13 @@ set(UseOscProb 1 CACHE STRING  "NuOscillator Option -- Enable OscProb")
 set(UseProb3ppLinear 1 CACHE STRING  "NuOscillator Option -- Enable Prob3ppLinear")
 set(UseNuFASTLinear 1 CACHE STRING  "NuOscillator Option -- Enable NuFASTLinear")
 set(UseProbGPULinear 1 CACHE STRING  "NuOscillator Option -- Enable ProbGPULinear")
+set(NuOscillatorTag "main" CACHE STRING "NuOscillator tag to build")
 
 # Get the NuOscillator package and build it.
 include(FetchContent)
 FetchContent_Declare(nuoscillator
   GIT_REPOSITORY https://github.com/dbarrow257/NuOscillator.git
-  GIT_TAG main
+  GIT_TAG ${NuOscillatorTag}
 )
 FetchContent_MakeAvailable(nuoscillator)
 

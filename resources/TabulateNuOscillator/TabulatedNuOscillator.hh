@@ -86,6 +86,10 @@ namespace TabulatedNuOscillator {
         std::string oscEnergyStep; // The type of step (inverse or logarithmic)
         int oscEnergyBins;         // Number of energy bins per neutrino type.
         int oscZenithBins;         // Number of angle bins per neutrino type.
+        int oscEnergySmooth;       // Bins to smooth over for energy
+        int oscZenithSmooth;       // Bins to smooth over for zenith
+        int oscEnergyResol;        // Smoothing (fraction energy resolution)
+        int oscZenithResol;        // Smoothing (radians)
         OscillationParameters oscParIndex;
         // NuOscillator interface values:
         //    -- FLOAT_T is defined in OscillatorConstants.h (no namespace).
@@ -103,7 +107,12 @@ namespace TabulatedNuOscillator {
         FLOAT_T oscProdHeight;      // The production height for the table (km).
         std::vector<FLOAT_T> oscEnergies; // Energies for bins
         std::vector<FLOAT_T> oscZenith; // Zenith cosines for bins (optional)
-        std::vector<const FLOAT_T*> weightAddress; // NuOscillator to Tabulate map
+        struct OscWeight {
+            std::size_t index;
+            const FLOAT_T* address;
+            float weight;
+        };
+        std::vector<OscWeight> weightAddress; // NuOscillator to Tabulate map
     };
     using GlobalLookup = std::map<std::string, TableGlobals>;
     extern "C" GlobalLookup globalLookup;

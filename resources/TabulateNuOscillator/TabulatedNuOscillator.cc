@@ -34,11 +34,22 @@ TabulatedNuOscillator::GlobalLookup TabulatedNuOscillator::globalLookup;
 
 void TabulatedNuOscillator::FillInverseEnergyArray(
     std::vector<FLOAT_T>& energies, double eMin, double eMax) {
+    const double minFraction = 0.8; // about 20 logarithmic steps.
     double step = (1.0/eMin - 1.0/eMax)/(energies.size()-1);
-    for (std::size_t bin = 0; bin < energies.size(); ++bin) {
-        double v = 1.0/eMax + step*bin;
-        energies[bin] = 1.0/v;
-    }
+    std::size_t bin = 0;
+    double lastInvE = 1.0/eMax;
+    energies[bin++] = 1.0/lastInvE;
+    while (bin < energies.size()) {
+        double invE = lastInvE + step;
+        if (1.0/invE < minFraction/lastInvE) {
+            invE = lastInvE/minFraction;
+            if (bin+1 < energies.size()) {
+                step = (1.0/eMin - invE)/(energies.size() - bin);
+            }
+        }
+        energies[bin++] = 1.0/invE;
+        lastInvE = invE;
+    };
 }
 
 void TabulatedNuOscillator::FillLogarithmicEnergyArray(
@@ -46,10 +57,11 @@ void TabulatedNuOscillator::FillLogarithmicEnergyArray(
     double eMaxLog = std::log(eMax);
     double eMinLog = std::log(eMin);
     double step=(eMaxLog - eMinLog)/(energies.size()-1);
-    for (std::size_t bin = 0; bin < energies.size(); ++bin) {
+    std::size_t bin = 0;
+    do {
         double v = eMinLog + step*bin;
-        energies[bin] = std::exp(v);
-    }
+        energies[bin++] = std::exp(v);
+    } while (bin < energies.size());
 }
 
 void TabulatedNuOscillator::FillEnergyArray(
@@ -100,7 +112,7 @@ void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
 
 double TabulatedNuOscillator::RoughZenithPath(double cosz) {
     const double Rd{6371}; //Average Earth Radius in km (average)
-    const double Rp{Rd + 30.0};
+    const double Rp{Rd + 20.0};
     double L = std::sqrt(Rd*Rd*(cosz*cosz-1.0) + Rp*Rp) - Rd*cosz;
     return L;
 }
@@ -242,9 +254,12 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 // ENERGY_BINS <integer> -- Number of energy bins for each neutrino type
 // MIN_ENERGY <double> -- Minimum neutrino energy in GeV
 // MAX_ENERGY <double> -- Maximum neutrino energy in GeV
-// ENERGY_STEP {inverse,logarithmic} -- The binning to use for energy
+// ENERGY_STEP {inverse,logarithmic} -- The energy binning to use (def: inverse)
+// ENERGY_SMOOTH <integer> -- Number of energy bins to smooth over (def: 0)
+// ENERGY_RESOLUTION <double> -- Fractional energy resolution to smooth over (def: 0.1)
 // ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
-// ENERGY_STEP inverse or logarithmic -- The type of energy step.
+// ZENITH_SMOOTH <integer> -- Number of zenith bins to smooth over (def: 0).
+// ZENITH_RESOLUTION <double> -- Angle (radian) to smooth over (def: 0.05).
 // DENSITY <double>    -- Density in gm/cc
 // ELECTRON_DENSITY <double> -- Almost always 0.5
 // PATH <double>       -- Path length in kilometers (for LBL)
@@ -252,7 +267,7 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 //
 extern "C"
 int initializeTable(const char* name, int argc, const char* argv[],
-                    int bins) {
+                    int suggestedBins) {
     LIB_COUT << "Initialize: " << name << std::endl;
     TabulatedNuOscillator::TableGlobals& globals = TabulatedNuOscillator::globalLookup[name];
 
@@ -266,6 +281,10 @@ int initializeTable(const char* name, int argc, const char* argv[],
     globals.oscDensity = 2.6; // gm/cc
     globals.oscElectronDensity = 0.5;
     globals.oscEnergyStep = "inverse";
+    globals.oscEnergySmooth = 0;
+    globals.oscEnergyResol = 0.1;
+    globals.oscZenithSmooth = 0;
+    globals.oscZenithResol = 0.5;
 
     for (int i = 0; i < argc; ++i) {
         LIB_COUT << "Argument: " << argv[i] << std::endl;
@@ -360,11 +379,28 @@ int initializeTable(const char* name, int argc, const char* argv[],
         break;
     }
 
-    // Get the type of step for the energy array.
+    // Get the type of step for the energies
     for (std::string arg: globals.arguments) {
         if (arg.find("ENERGY_STEP") != 0) continue;
         std::istringstream tmp(arg);
         tmp >> arg >> globals.oscEnergyStep;
+        break;
+    }
+
+
+    // Get the number of bins to smooth across for energies.
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ENERGY_SMOOTH") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscEnergySmooth;
+        break;
+    }
+
+    // Get the fractional energy resolution for energy to smooth over.
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ENERGY_RESOLUTION") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscEnergyResol;
         break;
     }
 
@@ -373,6 +409,22 @@ int initializeTable(const char* name, int argc, const char* argv[],
         if (arg.find("ZENITH_BINS") != 0) continue;
         std::istringstream tmp(arg);
         tmp >> arg >> globals.oscZenithBins;
+        break;
+    }
+
+    // Get the number of bins to smooth across for zenith angle
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ZENITH_SMOOTH") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscZenithSmooth;
+        break;
+    }
+
+    // Get the angle (radians) to some over zenith angle.
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ZENITH_RESOLUTION") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscZenithResol;
         break;
     }
 
@@ -467,27 +519,374 @@ int initializeTable(const char* name, int argc, const char* argv[],
     ConfigureNuOscillator(globals);
     TabulatedNuOscillator::NuOscillatorConfig& config = TabulatedNuOscillator::configLookup[globals.nuOscillatorConfig];
 
+    int zSmooth = 0;
+    int eSmooth = 0;
+#ifdef SMOOTH_TABLE
+    zSmooth = globals.oscZenithSmooth;
+    eSmooth = globals.oscEnergySmooth;
+#endif
     int zenithIndex = 0;
-    double zenith = -999.0;
-    while (true) {
-        if (zenithIndex < globals.oscZenith.size()) {
-            zenith = globals.oscZenith[zenithIndex];
-        }
-        for (double energy : globals.oscEnergies) {
-            const FLOAT_T* address
-                = config.oscillator->ReturnWeightPointer(
-                    globals.oscInitialFlavor,globals.oscFinalFlavor,
-                    energy, zenith);
-            globals.weightAddress.emplace_back(address);
-        }
-        ++zenithIndex;
-        if (zenithIndex < globals.oscZenith.size()) continue;
-        break;
+    // The zenith loops are done like this since oscZenith.size() might be
+    // zero.
+    do {
+        int iz = std::max(0,zenithIndex-zSmooth);
+        do {
+            double zenith = -999.0;
+            if (iz < globals.oscZenith.size()) {
+                zenith = globals.oscZenith[iz];
+            }
+            for (int energyIndex = 0;
+                 energyIndex < (int) globals.oscEnergies.size();
+                 ++energyIndex) {
+                std::size_t bin
+                    = zenithIndex*globals.oscEnergies.size() + energyIndex;
+                for (int ie = std::max(0, energyIndex - eSmooth);
+                     ie < std::min((int) globals.oscEnergies.size(),
+                                   energyIndex + eSmooth + 1);
+                     ++ie) {
+                    double energy = globals.oscEnergies[energyIndex];
+                    const FLOAT_T* address
+                        = config.oscillator->ReturnWeightPointer(
+                            globals.oscInitialFlavor,globals.oscFinalFlavor,
+                            energy, zenith);
+                    globals.weightAddress.emplace_back(
+                        TabulatedNuOscillator::TableGlobals::OscWeight(
+                            {bin, address, 1.0}));
+                }
+            }
+        } while (++iz < std::min((int) globals.oscZenith.size(),
+                                 zenithIndex+zSmooth+1));
+    } while (++zenithIndex < globals.oscZenith.size());
+
+    // Find the maximum bin in the table
+    std::size_t bins = 0;
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
+             : globals.weightAddress) {
+        bins = std::max(bins,weight.index+1);
     }
 
-    LIB_COUT << "Table size: " << globals.weightAddress.size() << std::endl;
+    // Find the sum of the weights for a particular bin.
+    std::vector<double> work(bins);
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
+             : globals.weightAddress) {
+        work[weight.index] += weight.weight;
+    }
 
-    return globals.weightAddress.size();
+    // Rescale the weights so they sum to one
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
+             : globals.weightAddress) {
+        if (work[weight.index] > 0.0) weight.weight /= work[weight.index];
+    }
+
+    LIB_COUT << "Oscillation size: " << globals.weightAddress.size()
+             << " Table size: " << bins
+             << " (suggested size: " << suggestedBins << ")" << std::endl;
+
+    return bins;
+}
+
+// Provide the weightTable entry point required by the GUNDAM tabulated dials.
+// The `index[]` and `weights[]` arrays must have at least `entries` elements
+// allocated.  The function returns the number of entries filled in the
+// `index[]` and `weights[]` arrays.
+//
+// Find the bins in the table that should be used to weight the event.  The
+// table will always be for a single neutrino type and has the order {(Z0,E0)
+// to (Z0,En); (Z1,E0) to (Z1,En); ...}
+extern "C"
+int weightTable(const char* name,
+                int varc, double varv[],
+                int entries, int index[], double weights[]) {
+    double energyValue = varv[0];
+    double zenithValue = (varc<2) ? -1.0: varv[1];
+    TabulatedNuOscillator::TableGlobals& globals
+        = TabulatedNuOscillator::globalLookup[name];
+
+    // Find the index of the entry oscZenith table that is greater than or
+    // equal to the zenithValue. The index will be zero if the zenith angle
+    // table doesn't exist.
+    int zenithIndex = 0;
+    if (globals.oscZenith.size() > 1) {
+        double value = zenithValue - 1.0/globals.oscZenith.size();
+        auto zenithIt = std::lower_bound(globals.oscZenith.begin(),
+                                         globals.oscZenith.end(),
+                                         value);
+        if (value < globals.oscZenith.front()) {
+            zenithIt = globals.oscZenith.begin();
+        }
+        else if ( value >= globals.oscZenith.back()) {
+            zenithIt = globals.oscZenith.end()-1;
+        }
+        zenithIndex = std::distance(globals.oscZenith.begin(), zenithIt);
+    }
+
+    // Find the index for the energy in the oscEnergies table that is greater
+    // or equal to the energyValue.
+    auto energyIt = std::lower_bound(globals.oscEnergies.begin(),
+                                     globals.oscEnergies.end(),
+                                     energyValue);
+    if (energyValue < (globals.oscEnergies.front())) {
+        energyIt = globals.oscEnergies.begin();
+    }
+    else if (energyValue >= globals.oscEnergies.back()) {
+        energyIt = globals.oscEnergies.end()-1;
+    }
+    int energyIndex = std::distance(globals.oscEnergies.begin(), (energyIt));
+
+    // Check that there is enough space.
+    if (entries < 4
+        or entries < 10*globals.oscEnergySmooth*globals.oscZenithSmooth) {
+        LIB_CERR << "Not enough entries in weight arrays" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    int entry = 0;
+
+#define IDX(e,z) ((z)*globals.oscEnergies.size() + (e))
+    // Average over a window
+    const double sigmaE = globals.oscEnergyResol; // percent energy smoothing.
+    const double sigmaZ = globals.oscZenithResol; // angular smoothing (radian)
+    const double thres = 0.05;
+    for (int ie = 0; ie < globals.oscEnergies.size(); ++ie) {
+        double binEnergy = 1.0;
+        if (globals.oscEnergySmooth > 0) {
+            binEnergy = 2.0*ie/globals.oscEnergySmooth;
+            binEnergy = std::exp(-0.5*binEnergy*binEnergy);
+        }
+        else if (ie > 0) binEnergy = 0.0;
+        double lowerEnergy = 0.0;
+        int lowE = energyIndex - ie - 1;
+        if (0 <= lowE) {
+            double deltaE = globals.oscEnergies[lowE] - energyValue;
+            deltaE /= energyValue;
+            lowerEnergy = std::exp(-0.5*deltaE*deltaE/(sigmaE*sigmaE));
+        }
+        double upperEnergy = 0.0;
+        int highE = energyIndex + ie;
+        if (highE < globals.oscEnergies.size()) {
+            double deltaE = globals.oscEnergies[highE] - energyValue;
+            deltaE /= energyValue;
+            upperEnergy = std::exp(-0.5*deltaE*deltaE/(sigmaE*sigmaE));
+        }
+        int iz = 0;
+        do {
+            if (ie == 0 and iz == 0) {
+                double dE = 0.0;
+                if (energyIndex < 1) {
+                    dE += (1.0/globals.oscEnergies[energyIndex]
+                           - 1.0/globals.oscEnergies[energyIndex+1]);
+                }
+                else {
+                    dE += (1.0/globals.oscEnergies[energyIndex-1]
+                           - 1.0/globals.oscEnergies[energyIndex]);
+                }
+                double dZ = 0.0;
+                if (globals.oscZenith.size() < 1) {
+                    dZ = 1.0;
+                }
+                else if (zenithIndex < 1) {
+                    dZ += (TabulatedNuOscillator::RoughZenithPath(
+                               globals.oscZenith[zenithIndex])
+                           - TabulatedNuOscillator::RoughZenithPath(
+                               globals.oscZenith[zenithIndex+1]));
+                }
+                else {
+                    dZ += (TabulatedNuOscillator::RoughZenithPath(
+                               globals.oscZenith[zenithIndex-1])
+                           - TabulatedNuOscillator::RoughZenithPath(
+                               globals.oscZenith[zenithIndex]));
+                }
+                double area = dE*dZ;
+                if (area < 0) {
+                    LIB_COUT<< "interpolation area " << area
+                            << " " << dE << " " << dZ
+                            << std::endl;
+                    LIB_CERR << "interpolation area wrong"
+                             << std::endl;
+                    std::exit(1);
+                }
+                // In the central box, use linear interpolation
+                double wZ = 0.0;
+                if (zenithIndex > 0) {
+                    wZ = TabulatedNuOscillator::RoughZenithPath(zenithValue)
+                        - TabulatedNuOscillator::RoughZenithPath(
+                            globals.oscZenith[zenithIndex]);
+                    wZ /= (TabulatedNuOscillator::RoughZenithPath(
+                               globals.oscZenith[zenithIndex-1])
+                           - TabulatedNuOscillator::RoughZenithPath(
+                               globals.oscZenith[zenithIndex]));
+                }
+                if (wZ < 0.0) wZ = 0.0;
+                double wE = 0.0;
+                if (energyIndex > 0) {
+                    wE = 1.0/energyValue
+                        - 1.0/globals.oscEnergies[energyIndex];
+                    wE /= 1.0/globals.oscEnergies[energyIndex-1]
+                        - 1.0/globals.oscEnergies[energyIndex];
+                }
+                if (wE < 0.0) wE = 0.0;
+
+                for (int e = 0; e < 2; ++e) {
+                    if (energyIndex - e < 0) continue;
+                    for (int z = 0; z < 2; ++z) {
+                        if (zenithIndex - z < 0) continue;
+                        index[entry] = IDX(energyIndex-e,zenithIndex-z);
+                        weights[entry] = 1.0;
+                        if (e < 1) weights[entry] *= (1.0-wE);
+                        else weights[entry] *= wE;
+                        if (z < 1) weights[entry] *= (1.0-wZ);
+                        else weights[entry] *= wZ;
+                        weights[entry] *= area;
+                        if (weights[entry] < 1E-10) continue;
+                        ++entry;
+                    }
+                }
+                continue;
+            }
+            // Not in the central box, use Gaussian weighting
+            double binZenith = 1.0;
+            if (globals.oscZenithSmooth > 0) {
+                binZenith = 2.0*iz/globals.oscZenithSmooth;
+                binZenith = std::exp(-0.5*binZenith*binZenith);
+            }
+            else if (iz > 0) binZenith = 0.0;
+            double lowerZenith = 0.0;
+            int lowZ = zenithIndex-iz - 1;
+            if (0 <= lowZ) {
+                // Smooth over angle since it's the direction that is
+                // uncertain
+                double deltaZ
+                    = std::acos(globals.oscZenith[lowZ])
+                    - std::acos(zenithValue);
+                lowerZenith = std::exp(-0.5*deltaZ*deltaZ/(sigmaZ*sigmaZ));
+            }
+            double upperZenith = 0.0;
+            int highZ = zenithIndex + iz;
+            if (highZ < globals.oscZenith.size()) {
+                double deltaZ
+                    = std::acos(globals.oscZenith[zenithIndex+iz])
+                    - std::acos(zenithValue);
+                upperZenith = std::exp(-0.5*deltaZ*deltaZ/(sigmaZ*sigmaZ));
+            }
+            // Calculate the area correction around the high and low points.
+            double dUpperE = 0.0;
+            if (highE < globals.oscEnergies.size()-1) {
+                dUpperE += 0.5*(1.0/globals.oscEnergies[highE]
+                                - 1.0/globals.oscEnergies[highE+1]);
+            }
+            if (0 < highE and highE < globals.oscEnergies.size()) {
+                dUpperE += 0.5*(1.0/globals.oscEnergies[highE-1]
+                                - 1.0/globals.oscEnergies[highE]);
+            }
+            double dLowerE = 0.0;
+            if (lowE < globals.oscEnergies.size()-1) {
+                dLowerE += 0.5*(1.0/globals.oscEnergies[lowE]
+                                - 1.0/globals.oscEnergies[lowE+1]);
+            }
+            if (0 < lowE and lowE < globals.oscEnergies.size()) {
+                dLowerE += 0.5*(1.0/globals.oscEnergies[lowE-1]
+                                - 1.0/globals.oscEnergies[lowE]);
+            }
+            double dUpperZ = 0.0;
+            if (highZ < globals.oscZenith.size()-1) {
+                dUpperZ += 0.5*(TabulatedNuOscillator::RoughZenithPath(
+                                    globals.oscZenith[highZ])
+                                - TabulatedNuOscillator::RoughZenithPath(
+                                    globals.oscZenith[highZ+1]));
+            }
+            if (0 < highZ and highZ < globals.oscZenith.size()) {
+                dUpperZ += 0.5*(TabulatedNuOscillator::RoughZenithPath(
+                                    globals.oscZenith[highZ-1])
+                                - TabulatedNuOscillator::RoughZenithPath(
+                                    globals.oscZenith[highZ]));
+            }
+            double dLowerZ = 0.0;
+            if (lowZ < globals.oscZenith.size()-1) {
+                dLowerZ += 0.5*(TabulatedNuOscillator::RoughZenithPath(
+                                    globals.oscZenith[lowZ])
+                                - TabulatedNuOscillator::RoughZenithPath(
+                                    globals.oscZenith[lowZ+1]));
+            }
+            if (0 < lowZ and lowZ < globals.oscZenith.size()) {
+                dLowerZ += 0.5*(TabulatedNuOscillator::RoughZenithPath(
+                                    globals.oscZenith[lowZ-1])
+                                - TabulatedNuOscillator::RoughZenithPath(
+                                    globals.oscZenith[lowZ]));
+            }
+            if (dUpperE < 0 or dLowerE<0 or dUpperZ < 0 or dLowerZ < 0) {
+                LIB_COUT << "smoothing area"
+                         << " dUpperE " << dUpperE
+                         << " dLowerE " << dLowerE
+                         << " dUpperZ " << dUpperZ
+                         << " dLowerZ " << dLowerZ
+                         << " high Z " << highZ
+                         << " low Z " << lowZ
+                         << std::endl;
+                LIB_CERR << "smoothing area wrong"
+                         << std::endl;
+                std::exit(1);
+            }
+            int lastEntry = entry;
+            if (entries < entry+4) {
+                LIB_CERR << "Weight table too small: " << entries
+                        << std::endl;
+                break; // Not enough space for more points
+            }
+            if (highE < globals.oscEnergies.size()
+                and highZ < globals.oscZenith.size()) {
+                index[entry] = IDX(highE,highZ);
+                weights[entry] = upperEnergy*upperZenith;
+                weights[entry] *= binEnergy*binZenith;
+                if (weights[entry] > thres) {
+                    weights[entry] *= dUpperE*dUpperE;
+                    ++entry;
+                }
+            }
+            if (0 <= lowE and 0 <= lowZ) {
+                index[entry] = IDX(lowE,lowZ);
+                weights[entry] = lowerEnergy*lowerZenith;
+                weights[entry] *= binEnergy*binZenith;
+                if (weights[entry] > thres) {
+                    weights[entry] *= dLowerE*dLowerZ;
+                    ++entry;
+                }
+            }
+            if (highE < globals.oscEnergies.size()
+                and 0 <= lowZ) {
+                index[entry] = IDX(highE,lowZ);
+                weights[entry] = upperEnergy*lowerZenith;
+                weights[entry] *= binEnergy*binZenith;
+                if (weights[entry] > thres) {
+                    weights[entry] *= dUpperE*dLowerZ;
+                    ++entry;
+                }
+            }
+            if (0 <= lowE
+                and highE < globals.oscZenith.size()) {
+                index[entry] = IDX(lowE,highZ);
+                weights[entry] = lowerEnergy*upperZenith;
+                weights[entry] *= binEnergy*binZenith;
+                if (weights[entry] > thres) {
+                    weights[entry] *= dLowerE*dUpperZ;
+                    ++entry;
+                }
+            }
+            if (lastEntry == entry) break;
+        } while (++iz < globals.oscZenith.size());
+        if (binEnergy < thres) break;
+    }
+
+    // Fix the normalization.
+    double sum = 0;
+    for (int i = 0; i < entry; ++i) sum += weights[i];
+    for (int i = 0; i < entry; ++i) weights[i] /= sum;
+#ifdef DEBUG_WEIGHT_TABLE
+    std::cout << "reweight "
+              << energyValue << " " << zenithValue
+              << " with " << entry << " entries"
+              << " and sum " << sum << std::endl;
+#endif
+
+    return entry;
 }
 
 // Provide the binTable entry point required by the GUNDAM tabulated dials.
@@ -501,7 +900,8 @@ double binTable(const char* name,
     double energyValue = varv[0];
     double zenithValue = (varc<2) ? -1.0: varv[1];
 
-    TabulatedNuOscillator::TableGlobals& globals = TabulatedNuOscillator::globalLookup[name];
+    TabulatedNuOscillator::TableGlobals& globals
+        = TabulatedNuOscillator::globalLookup[name];
 
     int expectedBins = std::max((std::size_t) 1, globals.oscZenith.size());
     expectedBins = expectedBins * globals.oscEnergies.size();
@@ -586,9 +986,11 @@ int updateTable(const char* name,
         std::exit(EXIT_FAILURE);
     }
 
-    TabulatedNuOscillator::TableGlobals& globals = TabulatedNuOscillator::globalLookup[name];
+    TabulatedNuOscillator::TableGlobals& globals
+        = TabulatedNuOscillator::globalLookup[name];
     std::string configName = globals.nuOscillatorConfig;
-    TabulatedNuOscillator::NuOscillatorConfig& config = TabulatedNuOscillator::configLookup[configName];
+    TabulatedNuOscillator::NuOscillatorConfig& config
+        = TabulatedNuOscillator::configLookup[configName];
 
     bool oscParamsFilled = false;
     ////////////////////////////////////////////////////////////////////////
@@ -603,13 +1005,22 @@ int updateTable(const char* name,
         // This one only works for LBL neutrino oscillations
         using Calcer = OscProbCalcerNuFASTLinear;
         if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
-            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
+            LIB_COUT << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << Calcer::kNOscParams
+                     << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << Calcer::kNOscParams
+                     << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        config.oscParams[Calcer::kTH12] = std::max(par[config.oscParIndex.ss12],1E-12);
-        config.oscParams[Calcer::kTH13] = std::max(par[config.oscParIndex.ss13],1E-12);
-        config.oscParams[Calcer::kTH23] = std::max(par[config.oscParIndex.ss23],1E-12);
+        config.oscParams[Calcer::kTH12]
+            = std::max(par[config.oscParIndex.ss12],1E-12);
+        config.oscParams[Calcer::kTH13]
+            = std::max(par[config.oscParIndex.ss13],1E-12);
+        config.oscParams[Calcer::kTH23]
+            = std::max(par[config.oscParIndex.ss23],1E-12);
         // NuOscillator reverses the index order on delta-mass-squared
         config.oscParams[Calcer::kDM12] = par[config.oscParIndex.dm21];
         config.oscParams[Calcer::kDM23] = par[config.oscParIndex.dm32];
@@ -625,7 +1036,8 @@ int updateTable(const char* name,
         LIB_COUT << "kDM23 " << config.oscParams[Calcer::kDM23] << std::endl;
         LIB_COUT << "kPATHL " << config.oscParams[Calcer::kPATHL] << std::endl;
         LIB_COUT << "kDENS " << config.oscParams[Calcer::kDENS] << std::endl;
-        LIB_COUT << "kELECDENS " << config.oscParams[Calcer::kELECDENS] << std::endl;
+        LIB_COUT << "kELECDENS " << config.oscParams[Calcer::kELECDENS]
+                 << std::endl;
 #endif
     }
 #endif
@@ -636,8 +1048,14 @@ int updateTable(const char* name,
         // This one only works for LBL neutrino oscillations
         using Calcer = OscProbCalcerProb3ppLinear;
         if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
-            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
+            LIB_COUT << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << Calcer::kNOscParams
+                     << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << Calcer::kNOscParams
+                     << std::endl;
             std::exit(EXIT_FAILURE);
         }
         config.oscParams[Calcer::kTH12] = par[config.oscParIndex.ss12];
@@ -659,14 +1077,22 @@ int updateTable(const char* name,
         if (Calcer::kNOscParams+1 == config.oscillator->ReturnNOscParams()) {
             config.oscParams[Calcer::kNOscParams] = config.oscProdHeight;
         }
-        else if (Calcer::kNOscParams+3 == config.oscillator->ReturnNOscParams()) {
+        else if (Calcer::kNOscParams+3
+                 == config.oscillator->ReturnNOscParams()) {
             config.oscParams[Calcer::kNOscParams] = config.oscPath;
             config.oscParams[Calcer::kNOscParams+1] = config.oscDensity;
             config.oscParams[Calcer::kNOscParams+2] = 0.5;
         }
-        else if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
-            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << Calcer::kNOscParams  << std::endl;
+        else if (Calcer::kNOscParams
+                 != config.oscillator->ReturnNOscParams()) {
+            LIB_COUT << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << Calcer::kNOscParams
+                     << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << Calcer::kNOscParams
+                     << std::endl;
             std::exit(EXIT_FAILURE);
         }
         config.oscParams[Calcer::kTH12] = par[config.oscParIndex.ss12];
@@ -678,15 +1104,20 @@ int updateTable(const char* name,
     }
 #endif
 #ifdef UseCUDAProb3
-    //std::cout<<"MyDebug: "<<config.oscillator->ReturnImplementationName()<<std::endl;
     if (config.oscillator->ReturnImplementationName()
         .find("Unbinned_CUDAProb3") != std::string::npos) {
         oscParamsFilled = true;
         // This one only works for atmospheric neutrino oscillations
         using Calcer = OscProbCalcerCUDAProb3;
         if (7 != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << 7  << std::endl;
-            LIB_CERR << "Wrong number of parameters.  Provided: " << config.oscillator->ReturnNOscParams() << " Needed: " << 7  << std::endl;
+            LIB_COUT << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << 7
+                     << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << 7
+                     << std::endl;
             std::exit(EXIT_FAILURE);
         }
         config.oscParams[0] = par[config.oscParIndex.ss12];
@@ -706,8 +1137,8 @@ int updateTable(const char* name,
     }
 
     try {
-        // See if the table needs to be recalculated.  The oscillator is clever
-        // and will only recalculate if the parameters have changed.
+        // See if the table needs to be recalculated.  The oscillator is
+        // clever and will only recalculate if the parameters have changed.
         config.oscillator->CalculateProbabilities(config.oscParams);
     } catch (...) {
         LIB_CERR << "Invalid probability or other throw from NuOscillator"
@@ -722,24 +1153,34 @@ int updateTable(const char* name,
         std::exit(EXIT_FAILURE);
     }
 
-    // Copy the table.
-    if (bins != globals.weightAddress.size()) {
-        LIB_CERR << "Mismatched table size"
-                 << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
-    for (int i=0; i<bins; ++i) {
-        double v = *globals.weightAddress[i];
+    for (int i = 0; i<bins; ++i) table[i] = 0.0;
+    for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
+             : globals.weightAddress) {
+        const std::size_t i = weight.index;
+        const double v = *weight.address;
+        const double w = weight.weight;
+#ifdef ERROR_CHECKING
+        if (i < 0 or bins <= i or w < 0.0 or w > 1.0) {
+            LIB_CERR << "Error filling " << name << std::endl;
+            LIB_CERR << "    Expecting bin: 0 <= " << i << " < " << bins
+                     << std::endl;
+            LIB_CERR << "    Expecting weight 0.0 < " << w << " < " << 1.0
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         if (not std::isfinite(v) or v < 0.0 or v > 1.0) {
             LIB_CERR << "Error filling " << name << std::endl;
             for (int j = 0; j < npar; ++j) {
-                LIB_CERR << "   Parameter " << j << " is " << par[j] << std::endl;
+                LIB_CERR << "   Parameter " << j
+                         << " is " << par[j] << std::endl;
             }
-            LIB_CERR << "Weight is " << v << std::endl;
+            LIB_CERR << "Table bin is " << i << std::endl;
+            LIB_CERR << "Oscillation weight is " << v << std::endl;
+            LIB_CERR << "Smoothing weight is " << w << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        table[i] = v;
+#endif
+        table[i] += w*v;
     }
 
 #ifdef DUMP_UPDATE_TABLE

@@ -77,9 +77,11 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("ENERGY_BINS "+energyBins);
     initFunc_arguments.push_back("ENERGY_STEP inverse");
     initFunc_arguments.push_back("MIN_ENERGY 0.50");
-    initFunc_arguments.push_back("MAX_ENERGY 50.0");
+    initFunc_arguments.push_back("MAX_ENERGY 100.0");
     if (not zenithBins.empty()) {
         initFunc_arguments.push_back("ZENITH_BINS "+zenithBins);
+        initFunc_arguments.push_back("ZENITH_SMOOTH 0");
+        initFunc_arguments.push_back("ENERGY_SMOOTH 0");
     }
     initFunc_arguments.push_back("DENSITY 2.6");
     initFunc_arguments.push_back("PATH 1300.0");
@@ -155,12 +157,16 @@ int main(int argc, char** argv) {
 
 #ifdef TestNUFAST
 #warning "Test NUFAST"
-    AddTable("./Configs/GUNDAM_NuFASTLinear","muon","muon","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear","muon","electron","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear","electron","muon","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-muon","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-electron","1000","");
-    AddTable("./Configs/GUNDAM_NuFASTLinear","anti-electron","anti-muon","1000","");
+    {
+        std::string enr{"1000"};
+        std::string zen{""};
+        AddTable("./Configs/GUNDAM_NuFASTLinear","muon","muon",enr,zen);
+        AddTable("./Configs/GUNDAM_NuFASTLinear","muon","electron",enr,zen);
+        AddTable("./Configs/GUNDAM_NuFASTLinear","electron","muon",enr,zen);
+        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-muon",enr,zen);
+        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-electron",enr,zen);
+        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-electron","anti-muon",enr,zen);
+    }
 #else
 #warning "Not testing NUFAST"
 #endif
@@ -168,12 +174,16 @@ int main(int argc, char** argv) {
 #undef TestOscProb
 #ifdef TestOscProb
 #warning "Test OscProb"
-    AddTable("./Configs/GUNDAM_OscProb","muon","muon","200","40");
-    AddTable("./Configs/GUNDAM_OscProb","muon","electron","200","40");
-    AddTable("./Configs/GUNDAM_OscProb","muon","tau","200","40");
-    AddTable("./Configs/GUNDAM_OscProb","electron","electron","200","40");
-    AddTable("./Configs/GUNDAM_OscProb","electron","muon","200","40");
-    AddTable("./Configs/GUNDAM_OscProb","electron","tau","200","40");
+    {
+        std::string enr{"200"};
+        std::string zen{"40"};
+        AddTable("./Configs/GUNDAM_OscProb","muon","muon",enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","muon","electron",enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","muon","tau",enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","electron","electron",enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","electron","muon",enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","electron","tau",enr,zen);
+    }
 #else
 #warning "Not testing OscProb"
 #endif
@@ -181,8 +191,8 @@ int main(int argc, char** argv) {
 #ifdef TestCUDAProb3
 #warning "Test CUDAProb3"
     {
-        std::string enr{"500"};
-        std::string zen{"500"};
+        std::string enr{"400"};
+        std::string zen{"400"};
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enr,zen);
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enr,zen);
         AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enr,zen);

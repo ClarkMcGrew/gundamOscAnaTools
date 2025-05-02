@@ -21,6 +21,24 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
+std::vector<double> eLikeEnergyBins{
+    0.0, 0.07, 0.10, 0.15, 0.22, 0.33, 0.50, 0.70, 1.1, 1.6,
+    2.3, 3.4, 5.0, 7.6, 11.0, 17.0, 25.0, 37.0, 54.0, 100.0,
+};
+
+std::vector<double> muLikeEnergyBins{
+    0.0, 0.12, 0.20, 0.33, 0.54, 0.90, 1.5, 2.5,
+    4.0, 7.0, 11.0, 19.0, 32.0, 100.0,
+};
+
+std::vector<double> eLikeZenithBins{
+    -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0,
+};
+
+std::vector<double> muLikeZenithBins{
+    -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0,
+};
+
 struct TableEntry {
     std::string name;
     std::string config;
@@ -29,6 +47,14 @@ struct TableEntry {
 
     int bins;
     std::vector<double> table;
+
+    struct KrigWeight {
+        double energy;
+        double zenith;
+        std::vector<int> index;
+        std::vector<double> weights;
+    };
+    std::vector<KrigWeight> krigging;
 
     void *library;
     int (*initFunc)(const char* name,
@@ -40,6 +66,9 @@ struct TableEntry {
     double (*binningFunc)(const char* name,
                           int varc, double varv[],
                           int bins);
+    int (*weightingFunc)(const char* name,
+                         int varc, double varv[],
+                         int entries, int index[], double weights[]);
     TabulatedNuOscillator::GlobalLookup *globals;
     TabulatedNuOscillator::ConfigLookup *configs;
 };
@@ -93,6 +122,8 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("MAX_ENERGY 100.0");
     if (not zenithBins.empty()) {
         initFunc_arguments.push_back("ZENITH_BINS "+zenithBins);
+        initFunc_arguments.push_back("ZENITH_SMOOTH 3");
+        initFunc_arguments.push_back("ENERGY_SMOOTH 3");
     }
     initFunc_arguments.push_back("DENSITY 2.6");
     initFunc_arguments.push_back("PATH 1300.0");
@@ -115,7 +146,7 @@ void AddTable(std::string config,
     symbol = dlsym(tableEntry.library, "updateTable");
     if( symbol == nullptr ){
         std::cout << "Update function symbol not found: "
-                 << "updateTable"
+                  << "updateTable"
                   << std::endl;
         std::exit(EXIT_FAILURE);
     }
@@ -143,6 +174,24 @@ void AddTable(std::string config,
     std::cout << "binTable address: " << (void*) tableEntry.binningFunc
               << std::endl;
 
+    // Get the Krigging weight function
+    symbol = dlsym(tableEntry.library, "weightTable");
+    if( symbol == nullptr ){
+        std::cout << "Weighting function symbol not found: "
+                  << "weightTable"
+                  << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    tableEntry.weightingFunc
+        = reinterpret_cast<
+            int(*)(const char* name,
+                   int varc, double varv[],
+                   int entries, int index[], double weights[])>(symbol);
+
+    std::cout << "weightTable address: " << (void*) tableEntry.weightingFunc
+              << std::endl;
+
+    // Get some of the TabulateNuOscillator internal symbols for debugging.
     symbol = dlsym(tableEntry.library, "globalLookup");
     if( symbol == nullptr ){
         std::cout << "Global lookup table symbol not found "
@@ -161,152 +210,254 @@ void AddTable(std::string config,
     tableEntry.configs = reinterpret_cast<
         TabulatedNuOscillator::ConfigLookup*>(symbol);
 
+    {
+        TabulatedNuOscillator::TableGlobals& global
+            = (*tableEntry.globals)[tableEntry.name];
+        int steps = 1000;
+        for (int ie = 0; ie<steps; ++ie) {
+            double e = std::log(0.1) + ie*(std::log(100.0)-std::log(0.1))/steps;
+            e = std::exp(e);
+            for (int iz = 0; iz < steps; ++iz) {
+
+                double z = 1.0 - iz*2.0/steps;
+                double varv[]{e,z};
+                int index[10000];
+                double weights[10000];
+                int entries = tableEntry.weightingFunc(tableEntry.name.c_str(),
+                                                       2, varv,
+                                                       10000,index,weights);
+                TableEntry::KrigWeight w;
+                w.energy = e;
+                w.zenith = z;
+                for (int i = 0; i<entries; ++i) {
+                    w.index.emplace_back(index[i]);
+                    w.weights.emplace_back(weights[i]);
+                }
+#ifdef DUMP_KRIG
+                std::cout << "KRIG " << w.energy << " " << w.zenith;
+                for (int i = 0; i < w.index.size(); ++i) {
+                    std::cout << " (" << w.index[i]
+                              << "," << w.weights[i] << ")";
+                }
+                std::cout << std::endl;
+#endif
+                tableEntry.krigging.emplace_back(w);
+            }
+        }
+    }
+    std::cout << "Krigging weights: " << tableEntry.krigging.size() << std::endl;
+
     for (auto [table, global] : *tableEntry.globals) {
         std::cout << "table: " << table << " " << global.name << std::endl;
         std::cout << " energies: " << global.oscEnergies.size() << std::endl;
         std::cout << " zeniths: " << global.oscZenith.size() << std::endl;
         TabulatedNuOscillator::NuOscillatorConfig& config
             = (*tableEntry.configs)[global.nuOscillatorConfig];
-        std::cout << " config energies: " << config.energies.size() << std::endl;
+        std::cout << " config energies: " << config.energies.size()
+                  << std::endl;
     }
 }
 
 double RoughZenithPath(double cosz) {
     const double Rd{6371}; //Average Earth Radius in km (average)
-    const double Rp{Rd + 30.0};
+    const double Rp{Rd + 30.0}; //Should be thicker than the atmosphere.
     double L = std::sqrt(Rd*Rd*(cosz*cosz-1.0) + Rp*Rp) - Rd*cosz;
     return L;
 }
 
+double TableLookup(int enr, int zen,
+                   std::vector<double>& table,
+                   std::vector<FLOAT_T> energies,
+                   std::vector<FLOAT_T> zenith) {
+    if ( 0 < zen and zenith.size() <= zen) {
+        std::cout << "Zenith angle bin out of bounds: " << zen << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    if (enr < 0 or energies.size() <= enr) {
+        std::cout << "Energy bin out of bounds: " << enr << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    int index = zen*energies.size() + enr;
+    if (index < 0 or table.size() <= index) {
+        std::cout << "Table index out of bounds: " << index << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+    return table.at(index);
+}
 
-void PlotProbabilities(std::string name, OscillatorBase* oscillator,
+double Krig(std::vector<double>& table, TableEntry::KrigWeight& w) {
+    double v = 0.0;
+    double sum = 0.0;
+    for (int i = 0; i< w.index.size(); ++i) {
+        if (w.weights[i] < 0 or w.weights[i] > 1) {
+            std::cout << "Krig weight " << w.weights[i] << std::endl;
+        }
+        sum += w.weights[i];
+        v += w.weights[i]*table.at(w.index[i]);
+    }
+    if (sum < 0.1 or sum > 1.5) {
+        std::cout << "sum is " << sum << std::endl;
+    }
+    return v;
+}
+
+void PlotProbabilities(std::string name, std::vector<double> table,
+                       std::vector<TableEntry::KrigWeight>& krigging,
+                       OscillatorBase* oscillator,
                        std::string flux, int oscInitialFlavor,
                        std::string inter, int oscFinalFlavor,
                        std::vector<FLOAT_T> energies,
                        std::vector<FLOAT_T> zenith,
                        std::vector<FLOAT_T> params) {
     std::cout << "    Plot " << name << std::endl;
-    try {
-        std::ostringstream title;
-        title << "Oscillation probability for " << flux << " to " << inter;
 
-        oscillator->CalculateProbabilities(params);
-        TGraph2D energyZenithPlot;
-        energyZenithPlot.SetNpx(std::min((std::size_t)500,energies.size()));
-        energyZenithPlot.SetNpy(std::min((std::size_t)500,zenith.size()));
-        TGraph2D energyCosZPlot;
-        energyCosZPlot.SetNpx(std::min((std::size_t)500,energies.size()));
-        energyCosZPlot.SetNpy(std::min((std::size_t)500,zenith.size()));
-        int i = 0;
-        int j = 0;
-        for (double e : energies) {
-            for (double z: zenith) {
-                double p = oscillator->ReturnOscillationProbability(
-                    oscInitialFlavor, oscFinalFlavor, e, z);
-                energyZenithPlot.SetPoint(i++, std::log10(e),
+    std::ostringstream title;
+    title << "Oscillation probability for " << flux << " to " << inter;
+
+    TGraph2D energyZenithPlot;
+    energyZenithPlot.SetNpx(std::min((std::size_t)500,energies.size()));
+    energyZenithPlot.SetNpy(std::min((std::size_t)500,zenith.size()));
+    TGraph2D energyCosZPlot;
+    energyCosZPlot.SetNpx(std::min((std::size_t)500,energies.size()));
+    energyCosZPlot.SetNpy(std::min((std::size_t)500,zenith.size()));
+    {
+        int ezPlot = 0;
+        int ecPlot = 0;
+        for (int i = 0; i < energies.size(); ++i) {
+            for (int j = 0; j < zenith.size(); ++j) {
+                double e = energies[i];
+                double z = zenith[j];
+                double p = TableLookup(i,j,table,energies,zenith);
+                energyZenithPlot.SetPoint(ezPlot++, std::log10(e),
                                           RoughZenithPath(z),
                                           p);
-                energyCosZPlot.SetPoint(j++, std::log10(e),
+                energyCosZPlot.SetPoint(ecPlot++, std::log10(e),
                                         z,
                                         p);
             }
         }
-        energyZenithPlot.Draw("colz");
-        energyZenithPlot.SetTitle(title.str().c_str());
-        energyZenithPlot.GetXaxis()->SetTitle("Energy (log10(GeV))");
-        energyZenithPlot.GetYaxis()->SetTitle("Rough Path length (km)");
-        gPad->Update();
-        // energyZenithPlot.GetYaxis()->SetTitle("Zenith Angle (cos(theta))");
-        {
-            std::ostringstream fName;
-            fName << "OscProbLength-" << flux
-                  << "-" << inter
-                  << ".png";
-            gPad->Print(fName.str().c_str());
-        }
+    }
+    energyZenithPlot.Draw("colz");
+    energyZenithPlot.SetTitle(title.str().c_str());
+    energyZenithPlot.GetXaxis()->SetTitle("Energy (log10(GeV))");
+    energyZenithPlot.GetYaxis()->SetTitle("Rough Path length (km)");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "OscProbLength-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
+    }
 
-        energyCosZPlot.Draw("colz");
-        energyCosZPlot.SetTitle(title.str().c_str());
-        energyCosZPlot.GetXaxis()->SetTitle("Energy (log10(GeV))");
-        energyCosZPlot.GetYaxis()->SetTitle("Rough Path length (km)");
-        gPad->Update();
-        // energyCosZPlot.GetYaxis()->SetTitle("Zenith Angle (cos(theta))");
-        {
-            std::ostringstream fName;
-            fName << "OscProbCosZ-" << flux
-                  << "-" << inter
-                  << ".png";
-            gPad->Print(fName.str().c_str());
-        }
+    energyCosZPlot.Draw("colz");
+    energyCosZPlot.SetTitle(title.str().c_str());
+    energyCosZPlot.GetXaxis()->SetTitle("Energy (log10(GeV))");
+    energyCosZPlot.GetYaxis()->SetTitle("Zenith Cosine");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "OscProbCosZ-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
+    }
 
-        TProfile2D oscProfile("OscProbProfile",title.str().c_str(),
-                              40, -1.0, 2.01, 40, -1.0, 1.0);
-        for (double e = 0.1; e < 100.0; e *=1.005) {
-            for (double z = -1.0; z < 1.0; z += 0.005) {
-                double p = energyCosZPlot.Interpolate(std::log10(e),z);
-                oscProfile.Fill(std::log10(e),z,p);
+    std::cout << "Krig oscillogram" << std::endl;
+    TGraph2D energyCosZKrig;
+    energyCosZKrig.SetNpx(500);
+    energyCosZKrig.SetNpy(500);
+    {
+        int ezPlot = 0;
+        for (TableEntry::KrigWeight& w : krigging) {
+            double p = Krig(table,w);
+            if (p > 1.0) {
+                std::cout << "out of bounds " << p << std::endl;
             }
-        }
-
-        oscProfile.Draw("colz");
-        oscProfile.SetTitle(title.str().c_str());
-        oscProfile.GetXaxis()->SetTitle("Energy (log10(GeV))");
-        oscProfile.GetYaxis()->SetTitle("Zenith Angle (cosine)");
-        gPad->Update();
-        {
-            std::ostringstream fName;
-            fName << "OscProfile-" << flux
-                  << "-" << inter
-                  << ".png";
-            gPad->Print(fName.str().c_str());
-        }
-
-        TGraph zenithPlot;
-        zenithPlot.SetTitle(title.str().c_str());
-        zenithPlot.GetYaxis()->SetTitle("Probability at 100 MeV");
-        zenithPlot.GetXaxis()->SetTitle("Path Length (km)");
-        i = 0;
-        for (double z: zenith) {
-            double p = oscillator->ReturnOscillationProbability(
-                oscInitialFlavor, oscFinalFlavor, 0.1, z);
-            double l = RoughZenithPath(z);
-            if (l < 12000) continue;
-            zenithPlot.SetPoint(i++, l, p);
-        }
-        zenithPlot.Draw("AC*");
-        gPad->Update();
-        {
-            std::ostringstream fName;
-            fName << "ZenithProb-" << flux
-                  << "-" << inter
-                  << ".png";
-            gPad->Print(fName.str().c_str());
-        }
-
-        TGraph energyPlot;
-        energyPlot.SetTitle(title.str().c_str());
-        energyPlot.GetYaxis()->SetTitle("Probabilty at cosZ of -1");
-        energyPlot.GetXaxis()->SetTitle("Energy (GeV)");
-        i = 0;
-        for (double e: energies) {
-            if (e > 0.120) continue;
-            double p = oscillator->ReturnOscillationProbability(
-                oscInitialFlavor, oscFinalFlavor, e, -1.0);
-            energyPlot.SetPoint(i++, e, p);
-        }
-        energyPlot.Draw("AC*");
-        gPad->Update();
-        {
-            std::ostringstream fName;
-            fName << "EnergyProb-" << flux
-                  << "-" << inter
-                  << ".png";
-            gPad->Print(fName.str().c_str());
+            energyCosZKrig.SetPoint(ezPlot++, std::log10(w.energy),
+                                    w.zenith,
+                                    p);
         }
     }
-    catch (...) {
-        std::cout << "Problem with oscillation calculation" << std::endl;
-        std::exit(EXIT_FAILURE);
+    energyCosZKrig.Draw("colz");
+    energyCosZKrig.SetTitle(title.str().c_str());
+    energyCosZKrig.GetXaxis()->SetTitle("Energy (log10(GeV))");
+    energyCosZKrig.GetYaxis()->SetTitle("Zenith Cosine");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "OscKrigCosZ-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
+    }
+
+    TProfile2D oscProfile("OscProbProfile",title.str().c_str(),
+                          20, -1.0, 2.01, 20, -1.0, 1.0);
+    for (double e = 0.1; e < 100.0; e *=1.005) {
+        for (double z = -1.0; z < 1.0; z += 0.005) {
+            double p = energyCosZPlot.Interpolate(std::log10(e),z);
+            oscProfile.Fill(std::log10(e),z,p);
+        }
+    }
+
+    oscProfile.Draw("colz");
+    oscProfile.SetTitle(title.str().c_str());
+    oscProfile.GetXaxis()->SetTitle("Energy (log10(GeV))");
+    oscProfile.GetYaxis()->SetTitle("Zenith Angle (cosine)");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "OscProfCosZ-" << flux
+              << "-" << inter;
+        gPad->Print((fName.str()+".png").c_str());
+        TFile output((fName.str()+".root").c_str(),"new");
+        oscProfile.Write();
+        output.Close();
+    }
+
+    TGraph zenithPlot;
+    zenithPlot.SetTitle(title.str().c_str());
+    zenithPlot.GetYaxis()->SetTitle("Probability at 100 MeV");
+    zenithPlot.GetXaxis()->SetTitle("Path Length (km)");
+    for (int i = 0; i < zenith.size(); ++i) {
+        double e = energies[i];
+        double z = zenith[i];
+        double l = RoughZenithPath(z);
+        double p = TableLookup(0,i,table,energies,zenith);
+        if (l < 12000) break;
+        zenithPlot.SetPoint(i, l, p);
+    }
+    zenithPlot.Draw("AC*");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "ZenithProb-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
+    }
+
+    TGraph energyPlot;
+    energyPlot.SetTitle(title.str().c_str());
+    energyPlot.GetYaxis()->SetTitle("Probabilty at cosZ of -1");
+    energyPlot.GetXaxis()->SetTitle("Energy (GeV)");
+    for (int i = 0; i < energies.size(); ++i) {
+        double e = energies[i];
+        double z = zenith[i];
+        double l = RoughZenithPath(z);
+        double p = TableLookup(i,0,table,energies,zenith);
+        if (e > 0.120) break;;
+        energyPlot.SetPoint(i, e, p);
+    }
+    energyPlot.Draw("AC*");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "EnergyProb-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
     }
 }
 
@@ -314,34 +465,43 @@ int main(int argc, char** argv) {
     std::string enrStep{"inverse"};
     std::string enr{"100"};
     std::string zen{"100"};
+    std::string oscer{"cudaprob3"};
+
     if (argc > 1) enr = argv[1];
     if (argc > 2) zen = argv[2];
     if (argc > 3) enrStep = argv[3];
+    if (argc > 4) oscer = argv[4];
 
     std::cout << "Generating a " << enr
               << " x " << zen
               << " " << enrStep << " grid" <<std::endl;
 
-#ifdef NOTTestOscProb
+#ifdef TestOscProb
 #warning "Test OscProb"
-    AddTable("./Configs/GUNDAM_OscProb","muon","muon",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","muon","electron",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","muon","tau",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","electron","electron",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","electron","muon",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_OscProb","electron","tau",enrStep,enr,zen);
+    if (oscer == "oscprob") {
+        std::cout << "Testing OscProb" << std::endl;
+        AddTable("./Configs/GUNDAM_OscProb","muon","muon",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","muon","electron",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","muon","tau",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","electron","electron",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","electron","muon",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","electron","tau",enrStep,enr,zen);
+    }
 #else
 #warning "Not testing OscProb"
 #endif
 
 #ifdef TestCUDAProb3
 #warning "Test CUDAProb3"
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enrStep,enr,zen);
-    AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enrStep,enr,zen);
+    if (oscer == "cudaprob3") {
+        std::cout << "Testing CUDAProb3" << std::endl;
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enrStep,enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enrStep,enr,zen);
+    }
 #else
 #warning "Not testing CUDAProb3"
 #endif
@@ -371,8 +531,9 @@ int main(int argc, char** argv) {
                      par.data(), par.size());
         TabulatedNuOscillator::TableGlobals& global = (*t.globals)[t.name];
         std::cout << "  global name: " << global.name << std::endl;
-        TabulatedNuOscillator::NuOscillatorConfig& config = (*t.configs)[global.nuOscillatorConfig];
-        PlotProbabilities(global.name, config.oscillator,
+        TabulatedNuOscillator::NuOscillatorConfig& config
+            = (*t.configs)[global.nuOscillatorConfig];
+        PlotProbabilities(global.name, t.table, t.krigging, config.oscillator,
                           t.flux, global.oscInitialFlavor,
                           t.interaction, global.oscFinalFlavor,
                           config.energies, config.zenith, config.oscParams);
