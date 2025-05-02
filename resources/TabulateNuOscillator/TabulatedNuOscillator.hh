@@ -88,6 +88,8 @@ namespace TabulatedNuOscillator {
         int oscZenithBins;         // Number of angle bins per neutrino type.
         int oscEnergySmooth;       // Bins to smooth over for energy
         int oscZenithSmooth;       // Bins to smooth over for zenith
+        int oscEnergyResol;        // Smoothing (fraction energy resolution)
+        int oscZenithResol;        // Smoothing (radians)
         OscillationParameters oscParIndex;
         // NuOscillator interface values:
         //    -- FLOAT_T is defined in OscillatorConstants.h (no namespace).
