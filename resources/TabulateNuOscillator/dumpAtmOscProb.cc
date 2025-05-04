@@ -49,10 +49,17 @@ struct TableEntry {
     std::vector<double> table;
 
     struct KrigWeight {
-        double energy;
-        double zenith;
+        float eMin;
+        float eMax;
+        float zMin;
+        float zMax;
+        float energy;
+        float zenith;
+        int steps;
+        int ie;
+        int iz;
         std::vector<int> index;
-        std::vector<double> weights;
+        std::vector<float> weights;
     };
     std::vector<KrigWeight> krigging;
 
@@ -122,8 +129,8 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("MAX_ENERGY 100.0");
     if (not zenithBins.empty()) {
         initFunc_arguments.push_back("ZENITH_BINS "+zenithBins);
-        initFunc_arguments.push_back("ZENITH_SMOOTH 3");
-        initFunc_arguments.push_back("ENERGY_SMOOTH 3");
+        initFunc_arguments.push_back("ZENITH_SMOOTH 200.0");
+        initFunc_arguments.push_back("ENERGY_SMOOTH 0.20");
     }
     initFunc_arguments.push_back("DENSITY 2.6");
     initFunc_arguments.push_back("PATH 1300.0");
@@ -213,13 +220,18 @@ void AddTable(std::string config,
     {
         TabulatedNuOscillator::TableGlobals& global
             = (*tableEntry.globals)[tableEntry.name];
-        int steps = 1000;
+        int brake = 0;
+        int steps = 500;
+        double eMin = std::log10(0.1);
+        double eMax = std::log10(100.0);
+        double zMin = -1.0;
+        double zMax = 1.0;
         for (int ie = 0; ie<steps; ++ie) {
-            double e = std::log(0.1) + ie*(std::log(100.0)-std::log(0.1))/steps;
-            e = std::exp(e);
+            double e = eMin + ie*(eMax-eMin)/steps;
+            e = std::exp(e*std::log(10.0));
             for (int iz = 0; iz < steps; ++iz) {
 
-                double z = 1.0 - iz*2.0/steps;
+                double z = -1.0 + iz*2.0/steps;
                 double varv[]{e,z};
                 int index[10000];
                 double weights[10000];
@@ -227,6 +239,13 @@ void AddTable(std::string config,
                                                        2, varv,
                                                        10000,index,weights);
                 TableEntry::KrigWeight w;
+                w.eMin = eMin;
+                w.eMax = eMax;
+                w.zMin = zMin;
+                w.zMax = zMax;
+                w.steps = steps;
+                w.ie = ie;
+                w.iz = iz;
                 w.energy = e;
                 w.zenith = z;
                 for (int i = 0; i<entries; ++i) {
@@ -234,12 +253,15 @@ void AddTable(std::string config,
                     w.weights.emplace_back(weights[i]);
                 }
 #ifdef DUMP_KRIG
-                std::cout << "KRIG " << w.energy << " " << w.zenith;
-                for (int i = 0; i < w.index.size(); ++i) {
-                    std::cout << " (" << w.index[i]
-                              << "," << w.weights[i] << ")";
+                if (brake++ < 2000) {
+                    std::cout << "KRIG " << w.energy << " " << w.zenith
+                              << " " << ie << " " << iz;
+                    for (int i = 0; i < w.index.size(); ++i) {
+                        std::cout << " (" << w.index[i]
+                                  << "," << w.weights[i] << ")";
+                    }
+                    std::cout << std::endl;
                 }
-                std::cout << std::endl;
 #endif
                 tableEntry.krigging.emplace_back(w);
             }
@@ -364,19 +386,18 @@ void PlotProbabilities(std::string name, std::vector<double> table,
     }
 
     std::cout << "Krig oscillogram" << std::endl;
-    TGraph2D energyCosZKrig;
-    energyCosZKrig.SetNpx(500);
-    energyCosZKrig.SetNpy(500);
+    TH2F energyCosZKrig("energyCosZKrig",
+                        "Smoothed Oscillation Probability",
+                        krigging[0].steps, krigging[0].eMin, krigging[0].eMax,
+                        krigging[0].steps, krigging[0].zMin, krigging[0].zMax);
     {
         int ezPlot = 0;
         for (TableEntry::KrigWeight& w : krigging) {
             double p = Krig(table,w);
-            if (p > 1.0) {
-                std::cout << "out of bounds " << p << std::endl;
+            if (p < 0 or p > 1.0) {
+                std::cout << "out of bounds " << p << " " << p-1.0 << std::endl;
             }
-            energyCosZKrig.SetPoint(ezPlot++, std::log10(w.energy),
-                                    w.zenith,
-                                    p);
+            energyCosZKrig.SetBinContent(w.ie, w.iz, p);
         }
     }
     energyCosZKrig.Draw("colz");
