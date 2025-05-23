@@ -86,10 +86,10 @@ namespace TabulatedNuOscillator {
         std::string oscEnergyStep; // The type of step (inverse or logarithmic)
         int oscEnergyBins;         // Number of energy bins per neutrino type.
         int oscZenithBins;         // Number of angle bins per neutrino type.
-        int oscEnergySmooth;       // Bins to smooth over for energy
-        int oscZenithSmooth;       // Bins to smooth over for zenith
-        int oscEnergyResol;        // Smoothing (fraction energy resolution)
-        int oscZenithResol;        // Smoothing (radians)
+        double oscEnergySmooth;       // Smoothing 1/E
+        double oscZenithSmooth;       // Smoothing L
+        double oscEnergyResol;        // Smoothing (fraction energy resolution)
+        double oscZenithResol;        // Smoothing (radians)
         OscillationParameters oscParIndex;
         // NuOscillator interface values:
         //    -- FLOAT_T is defined in OscillatorConstants.h (no namespace).
@@ -118,14 +118,14 @@ namespace TabulatedNuOscillator {
     extern "C" GlobalLookup globalLookup;
 
     void FillInverseEnergyArray(std::vector<FLOAT_T>& energies,
-                                double eMin, double eMax);
+                                double eMin, double eMax, double eRes);
 
     void FillLogarithmicEnergyArray(std::vector<FLOAT_T>& energies,
                                     double eMin, double eMax);
 
     void FillEnergyArray(std::vector<FLOAT_T>& energies,
                          const std::string& type,
-                         double eMin, double eMax);
+                         double eMin, double eMax, double eRes);
 
     void FillZenithArray(std::vector<FLOAT_T>& zenith);
 
