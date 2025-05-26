@@ -504,10 +504,10 @@ int main(int argc, char** argv) {
 
     if (argc > 1) enr = argv[1];
     if (argc > 2) zen = argv[2];
-    if (argc > 3) enrSmt = argv[3];
-    if (argc > 4) zenSmt = argv[4];
-    if (argc > 5) enrRes = argv[3];
-    if (argc > 6) zenRes = argv[4];
+    if (argc > 3) enrRes = argv[3];
+    if (argc > 4) zenRes = argv[4];
+    if (argc > 5) enrSmt = argv[5];
+    if (argc > 6) zenSmt = argv[6];
 
     std::cout << "Generating a " << enr
               << " x " << zen
