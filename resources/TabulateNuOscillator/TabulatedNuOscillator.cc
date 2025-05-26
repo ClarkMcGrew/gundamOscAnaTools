@@ -609,6 +609,90 @@ double zenithBinDelta(double c2, double c1) {
     return std::abs(v);
 }
 
+#define IDX(e,z) ((z)*globals.oscEnergies.size() + (e))
+
+// Find the area scaled oscillation weight for an energy, zenith angle pair
+// relative to a energyIndex, zenithIndex element of the table.  This does
+// linear interpolation between [energyIndex, energyIndex-1, zenithIndex,
+// zenithIndex-1].
+int interpolationWeights(TabulatedNuOscillator::TableGlobals& globals,
+                         double energyValue, double zenithValue,
+                         int energyIndex, int zenithIndex,
+                         int entries, int index[], double weights[]) {
+    double dE = 0.0;
+    if (energyIndex < 1) {
+        dE += energyBinDelta(globals.oscEnergies[energyIndex],
+                             globals.oscEnergies[energyIndex+1]);
+    }
+    else {
+        dE += energyBinDelta(globals.oscEnergies[energyIndex-1],
+                             globals.oscEnergies[energyIndex]);
+    }
+    double dZ = 0.0;
+    if (globals.oscZenith.size() < 1) {
+        dZ = 1.0;
+    }
+    else if (zenithIndex < 1) {
+        dZ += zenithBinDelta(globals.oscZenith[zenithIndex],
+                             globals.oscZenith[zenithIndex+1]);
+    }
+    else {
+        dZ += zenithBinDelta(globals.oscZenith[zenithIndex-1],
+                             globals.oscZenith[zenithIndex]);
+    }
+    double area = dE*dZ;
+    if (area < 0) {
+        LIB_COUT<< "interpolation area " << area
+                << " " << dE << " " << dZ
+                << std::endl;
+        LIB_CERR << "interpolation area wrong"
+                 << std::endl;
+        std::exit(1);
+    }
+    // In the central box, use linear interpolation
+    double wZ = 0.0;
+    if (zenithIndex > 0) {
+        wZ = zenithBinDelta(zenithValue,
+                            globals.oscZenith[zenithIndex]);
+        wZ /= zenithBinDelta(globals.oscZenith[zenithIndex-1],
+                             globals.oscZenith[zenithIndex]);
+    }
+    if (wZ < 0.0 or 1.0 < wZ) {
+        LIB_COUT << "Bad zenith angle" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    double wE = 0.0;
+    if (energyIndex > 0) {
+        wE = energyBinDelta(energyValue,
+                            globals.oscEnergies[energyIndex]);
+        wE /= energyBinDelta(globals.oscEnergies[energyIndex-1],
+                             globals.oscEnergies[energyIndex]);
+    }
+    if (wE < 0.0 or 1.0 < wE) {
+        LIB_COUT << "Bad energy value" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    for (int e = 0; e < 2; ++e) {
+        if (energyIndex - e < 0) continue;
+        for (int z = 0; z < 2; ++z) {
+            if (zenithIndex - z < 0) continue;
+            index[entries] = IDX(energyIndex-e,zenithIndex-z);
+            weights[entries] = 1.0;
+            if (e < 1) weights[entries] *= (1.0-wE);
+            else weights[entries] *= wE;
+            if (z < 1) weights[entries] *= (1.0-wZ);
+            else weights[entries] *= wZ;
+            weights[entries] *= area;
+            if (weights[entries] < 1E-10) continue;
+            ++entries;
+        }
+    }
+
+    return entries;
+}
+
 // Provide the weightTable entry point required by the GUNDAM tabulated dials.
 // The `index[]` and `weights[]` arrays must have at least `entries` elements
 // allocated.  The function returns the number of entries filled in the
@@ -702,16 +786,26 @@ int weightTable(const char* name, int bins,
     const double energyBinSigma = globals.oscEnergySmooth;
     const double pathSigma = globals.oscZenithSmooth;
 
-#define IDX(e,z) ((z)*globals.oscEnergies.size() + (e))
     // Average over a window
     const double sigmaE = globals.oscEnergyResol; // percent energy smoothing.
     const double sigmaZ = globals.oscZenithResol; // angular smoothing (radian)
     const double thres = 0.01;
     for (int ie = 0; ie < globals.oscEnergies.size(); ++ie) {
+        // The lowE is the index of lower energy bin.  The location of the
+        // bin will always be less than or equal to energyValue.  The lowE
+        // value may be less than zero (which means the index should be
+        // ignored).
+        int lowE = energyIndex - ie - 1;
+
+        // The highE is the index of the upper zenith bin.  The location of
+        // the bin will always be greater than or equal to the energyValue The
+        // highE value may be greater than or equal to the size of the
+        // oscZenith vector (which means the index should be ignored).
+        int highE = energyIndex + ie;
+
         double upperBinEnergy = 0.0;
         double lowerBinEnergy = 0.0;
         double lowerEnergy = 0.0;
-        int lowE = energyIndex - ie - 1;
         if (0 <= lowE) {
             double binValue = globals.oscEnergies[lowE];
             // Smooth of the neutrino energy resolution
@@ -727,7 +821,6 @@ int weightTable(const char* name, int bins,
             }
         }
         double upperEnergy = 0.0;
-        int highE = energyIndex + ie;
         if (highE < globals.oscEnergies.size()) {
             double binValue = globals.oscEnergies[highE];
             double deltaE = binValue - energyValue;
@@ -744,91 +837,35 @@ int weightTable(const char* name, int bins,
         int iz = 0;
         do {
             if (ie == 0 and iz == 0) {
-                double dE = 0.0;
-                if (energyIndex < 1) {
-                    dE += energyBinDelta(globals.oscEnergies[energyIndex],
-                                         globals.oscEnergies[energyIndex+1]);
-                }
-                else {
-                    dE += energyBinDelta(globals.oscEnergies[energyIndex-1],
-                                         globals.oscEnergies[energyIndex]);
-                }
-                double dZ = 0.0;
-                if (globals.oscZenith.size() < 1) {
-                    dZ = 1.0;
-                }
-                else if (zenithIndex < 1) {
-                    dZ += (TabulatedNuOscillator::RoughZenithPath(
-                               globals.oscZenith[zenithIndex])
-                           - TabulatedNuOscillator::RoughZenithPath(
-                               globals.oscZenith[zenithIndex+1]));
-                }
-                else {
-                    dZ += (TabulatedNuOscillator::RoughZenithPath(
-                               globals.oscZenith[zenithIndex-1])
-                           - TabulatedNuOscillator::RoughZenithPath(
-                               globals.oscZenith[zenithIndex]));
-                }
-                double area = dE*dZ;
-                if (area < 0) {
-                    LIB_COUT<< "interpolation area " << area
-                            << " " << dE << " " << dZ
-                            << std::endl;
-                    LIB_CERR << "interpolation area wrong"
-                             << std::endl;
-                    std::exit(1);
-                }
-                // In the central box, use linear interpolation
-                double wZ = 0.0;
-                if (zenithIndex > 0) {
-                    wZ = TabulatedNuOscillator::RoughZenithPath(zenithValue)
-                        - TabulatedNuOscillator::RoughZenithPath(
-                            globals.oscZenith[zenithIndex]);
-                    wZ /= (TabulatedNuOscillator::RoughZenithPath(
-                               globals.oscZenith[zenithIndex-1])
-                           - TabulatedNuOscillator::RoughZenithPath(
-                               globals.oscZenith[zenithIndex]));
-                }
-                if (wZ < 0.0 or 1.0 < wZ) {
-                    LIB_COUT << "Bad zenith angle" << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-
-                double wE = 0.0;
-                if (energyIndex > 0) {
-                    wE = energyBinDelta(energyValue,
-                                        globals.oscEnergies[energyIndex]);
-                    wE /= energyBinDelta(globals.oscEnergies[energyIndex-1],
-                                         globals.oscEnergies[energyIndex]);
-                }
-                if (wE < 0.0 or 1.0 < wE) {
-                    LIB_COUT << "Bad energy value" << std::endl;
-                    std::exit(EXIT_FAILURE);
-                }
-
-                for (int e = 0; e < 2; ++e) {
-                    if (energyIndex - e < 0) continue;
-                    for (int z = 0; z < 2; ++z) {
-                        if (zenithIndex - z < 0) continue;
-                        index[entry] = IDX(energyIndex-e,zenithIndex-z);
-                        weights[entry] = 1.0;
-                        if (e < 1) weights[entry] *= (1.0-wE);
-                        else weights[entry] *= wE;
-                        if (z < 1) weights[entry] *= (1.0-wZ);
-                        else weights[entry] *= wZ;
-                        weights[entry] *= area;
-                        if (weights[entry] < 1E-10) continue;
-                        ++entry;
-                    }
-                }
+                // At the central point, so do linear interpolation from the
+                // corners of the box enclosing the energy and zenith values.
+                entry = interpolationWeights(globals,
+                                             energyValue, zenithValue,
+                                             energyIndex, zenithIndex,
+                                             entry, index, weights);
                 continue;
             }
 
-            // Not in the central box, use Gaussian weighting
+            // Not at the central point, so use Gaussian weighting. This is
+            // finding the weights for one bin below, and one bin above the
+            // central value.
+
+            // The lowZ is the index of lower zenith bin.  The location of the
+            // bin will always be less than or equal to zenithValue.  The lowZ
+            // value may be less than zero (which means the index should be
+            // ignored).
+            int lowZ = zenithIndex-iz - 1;
+
+            // The highZ is the index of the upper zenith bin.  The location
+            // of the bin will always be greater than or equal to the
+            // zenithValue The highZ value may be greater than or equal to the
+            // size of the oscZenith vector (which means the index should be
+            // ignored).
+            int highZ = zenithIndex + iz;
+
             double upperBinZenith = 0.0;
             double lowerBinZenith = 0.0;
             double lowerZenith = 0.0;
-            int lowZ = zenithIndex-iz - 1;
             if (0 <= lowZ) {
                 double binValue = globals.oscZenith[lowZ];
                 // Smooth over angle since it's the direction that is
@@ -845,7 +882,6 @@ int weightTable(const char* name, int bins,
                 }
             }
             double upperZenith = 0.0;
-            int highZ = zenithIndex + iz;
             if (highZ < globals.oscZenith.size()) {
                 double binValue = globals.oscZenith[highZ];
                 // Smooth over angle since it's the direction that is
