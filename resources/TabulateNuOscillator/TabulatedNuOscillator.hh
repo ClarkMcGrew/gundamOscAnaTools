@@ -140,14 +140,20 @@ namespace TabulatedNuOscillator {
                          const std::string& type,
                          double eMin, double eMax, double eRes);
 
+    /// Calculate the approximate "delta" along the zenith angle axis.  The
+    /// table spacing is approximately by path length while the bins are
+    /// labeled in cos(zenithAngle).  This is the approximate difference in
+    /// path length. This returns the absolute value of the change.
+    double zenithBinDelta(double c2, double c1);
+
     /// Fill a vector with the zenith angle binning.
     void FillZenithArray(std::vector<FLOAT_T>& zenith);
 
     /// Calculate an approximateion of the path length for a zenith cosine.
     double RoughZenithPath(double cosz);
 
-    /// Check if two doubles are almost equal.  The need to be within a few
-    /// bits of each other..
+    /// Check if two doubles are almost equal.  They both need to be within a
+    /// few 1E-10 of the average.
     bool AlmostEqual(double a, double b);
 
     /// Make sure the globals and nuoscillator configs agree.

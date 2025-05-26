@@ -603,7 +603,11 @@ double energyBinDelta(double e2, double e1) {
 // spacing is approximately by path length while the bins are labeled in
 // cos(zenithAngle).  This is the approximate difference in path length. This
 // returns the absolute value of the change.
-// TBD
+double zenithBinDelta(double c2, double c1) {
+    double v = TabulatedNuOscillator::RoughZenithPath(c2)
+        - TabulatedNuOscillator::RoughZenithPath(c1);
+    return std::abs(v);
+}
 
 // Provide the weightTable entry point required by the GUNDAM tabulated dials.
 // The `index[]` and `weights[]` arrays must have at least `entries` elements
@@ -835,9 +839,7 @@ int weightTable(const char* name, int bins,
                 // Smoothing over a range of path lengths. This apply the L/E
                 // resolution.
                 if (pathSigma > 1E-8) {
-                    double deltaPath
-                        = TabulatedNuOscillator::RoughZenithPath(binValue)
-                        - TabulatedNuOscillator::RoughZenithPath(zenithValue);
+                    double deltaPath = zenithBinDelta(binValue, zenithValue);
                     deltaPath /= pathSigma;
                     lowerBinZenith = std::exp(-0.5*deltaPath*deltaPath);
                 }
@@ -853,9 +855,7 @@ int weightTable(const char* name, int bins,
                 upperZenith = std::exp(-0.5*deltaZ*deltaZ);
                 // Smoothing over a range of path lengths. This apply the L/E
                 // resolution.
-                double deltaPath
-                    = TabulatedNuOscillator::RoughZenithPath(binValue)
-                    - TabulatedNuOscillator::RoughZenithPath(zenithValue);
+                double deltaPath = zenithBinDelta(binValue,zenithValue);
                 deltaPath /= pathSigma;
                 upperBinZenith = std::exp(-0.5*deltaPath*deltaPath);
             }
@@ -880,29 +880,21 @@ int weightTable(const char* name, int bins,
             }
             double dUpperZ = 0.0;
             if (highZ < globals.oscZenith.size()-1) {
-                dUpperZ += 0.5*(TabulatedNuOscillator::RoughZenithPath(
-                                    globals.oscZenith[highZ])
-                                - TabulatedNuOscillator::RoughZenithPath(
-                                    globals.oscZenith[highZ+1]));
+                dUpperZ += 0.5*zenithBinDelta(globals.oscZenith[highZ],
+                                              globals.oscZenith[highZ+1]);
             }
             if (0 < highZ and highZ < globals.oscZenith.size()) {
-                dUpperZ += 0.5*(TabulatedNuOscillator::RoughZenithPath(
-                                    globals.oscZenith[highZ-1])
-                                - TabulatedNuOscillator::RoughZenithPath(
-                                    globals.oscZenith[highZ]));
+                dUpperZ += 0.5*zenithBinDelta(globals.oscZenith[highZ-1],
+                                              globals.oscZenith[highZ]);
             }
             double dLowerZ = 0.0;
             if (lowZ < globals.oscZenith.size()-1) {
-                dLowerZ += 0.5*(TabulatedNuOscillator::RoughZenithPath(
-                                    globals.oscZenith[lowZ])
-                                - TabulatedNuOscillator::RoughZenithPath(
-                                    globals.oscZenith[lowZ+1]));
+                dLowerZ += 0.5*zenithBinDelta(globals.oscZenith[lowZ],
+                                              globals.oscZenith[lowZ+1]);
             }
             if (0 < lowZ and lowZ < globals.oscZenith.size()) {
-                dLowerZ += 0.5*(TabulatedNuOscillator::RoughZenithPath(
-                                    globals.oscZenith[lowZ-1])
-                                - TabulatedNuOscillator::RoughZenithPath(
-                                    globals.oscZenith[lowZ]));
+                dLowerZ += 0.5*zenithBinDelta(globals.oscZenith[lowZ-1],
+                                              globals.oscZenith[lowZ]);
             }
             if (dUpperE < 0 or dLowerE<0 or dUpperZ < 0 or dLowerZ < 0) {
                 LIB_COUT << "smoothing area"
