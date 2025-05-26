@@ -233,6 +233,7 @@ void AddTable(std::string config,
         double eMax = std::log10(100.0);
         double zMin = -1.0;
         double zMax = 1.0;
+        int totalEntries = 0;
         for (int ie = 0; ie<steps; ++ie) {
             double e = eMin + ie*(eMax-eMin)/steps;
             e = std::exp(e*std::log(10.0));
@@ -246,6 +247,7 @@ void AddTable(std::string config,
                                                        tableEntry.table.size(),
                                                        2, varv,
                                                        10000,index,weights);
+                totalEntries += entries;
                 TableEntry::KrigWeight w;
                 w.eMin = eMin;
                 w.eMax = eMax;
@@ -274,8 +276,11 @@ void AddTable(std::string config,
                 tableEntry.krigging.emplace_back(w);
             }
         }
+        std::cout << "Krigging weights: " << tableEntry.krigging.size()
+                  << " with " << totalEntries << " entries"
+                  << " " << 1.0*totalEntries/tableEntry.krigging.size()
+                  << " per weight" << std::endl;
     }
-    std::cout << "Krigging weights: " << tableEntry.krigging.size() << std::endl;
 
     for (auto [table, global] : *tableEntry.globals) {
         std::cout << "table: " << table << " " << global.name << std::endl;

@@ -789,7 +789,7 @@ int weightTable(const char* name, int bins,
     // Average over a window
     const double sigmaE = globals.oscEnergyResol; // percent energy smoothing.
     const double sigmaZ = globals.oscZenithResol; // angular smoothing (radian)
-    const double thres = 0.01;
+    const double windowThres = 0.1; // about +/- 2 sigma around center
     for (int ie = 0; ie < globals.oscEnergies.size(); ++ie) {
         // The lowE is the index of lower energy bin.  The location of the
         // bin will always be less than or equal to energyValue.  The lowE
@@ -803,37 +803,43 @@ int weightTable(const char* name, int bins,
         // oscZenith vector (which means the index should be ignored).
         int highE = energyIndex + ie;
 
-        double upperBinEnergy = 0.0;
+        // Find the weight for the averaging window.  This will be ignored for
+        // the central box.
         double lowerBinEnergy = 0.0;
+        if (0 <= lowE and energyBinSigma > 1E-8) {
+            double deltaInvE = energyBinDelta(globals.oscEnergies[lowE],
+                                              energyValue);
+            deltaInvE /= energyBinSigma;
+            lowerBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
+        }
+
+        double upperBinEnergy = 0.0;
+        if (highE < globals.oscEnergies.size() and energyBinSigma > 1E-8) {
+            double deltaInvE = energyBinDelta(globals.oscEnergies[highE]
+                                              ,energyValue);
+            deltaInvE /= energyBinSigma;
+            upperBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
+        }
+
+        // Find the weight for the energy resolution smoothing.  This will be
+        // ignored for the central box.
         double lowerEnergy = 0.0;
-        if (0 <= lowE) {
+        if (0 <= lowE and sigmaE > 1E-8) {
             double binValue = globals.oscEnergies[lowE];
             // Smooth of the neutrino energy resolution
             double deltaE = binValue - energyValue;
             deltaE /= energyValue*sigmaE;
             lowerEnergy = std::exp(-0.5*deltaE*deltaE);
-            // Smooth over the 1/E resolution.  This applies the L/E
-            // resolution.
-            if (energyBinSigma > 1E-8) {
-                double deltaInvE = energyBinDelta(binValue,energyValue);
-                deltaInvE /= energyBinSigma;
-                lowerBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
-            }
         }
+
         double upperEnergy = 0.0;
-        if (highE < globals.oscEnergies.size()) {
+        if (highE < globals.oscEnergies.size() and sigmaE > 1E-8) {
             double binValue = globals.oscEnergies[highE];
             double deltaE = binValue - energyValue;
             deltaE /= energyValue*sigmaE;
             upperEnergy = std::exp(-0.5*deltaE*deltaE);
-            // Smooth over the 1/E resolution.  This applies the L/E
-            // resolution.
-            if (energyBinSigma > 1E-8) {
-                double deltaInvE = energyBinDelta(binValue,energyValue);
-                deltaInvE /= energyBinSigma;
-                upperBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
-            }
         }
+
         int iz = 0;
         do {
             if (ie == 0 and iz == 0) {
@@ -863,38 +869,42 @@ int weightTable(const char* name, int bins,
             // ignored).
             int highZ = zenithIndex + iz;
 
-            double upperBinZenith = 0.0;
             double lowerBinZenith = 0.0;
+            if (0 <= lowZ and pathSigma > 1E-8) {
+                double deltaPath = zenithBinDelta(globals.oscZenith[lowZ],
+                                                  zenithValue);
+                deltaPath /= pathSigma;
+                lowerBinZenith = std::exp(-0.5*deltaPath*deltaPath);
+            }
+
+            double upperBinZenith = 0.0;
+            if (highZ < globals.oscZenith.size() and pathSigma>1E-8) {
+                double deltaPath = zenithBinDelta(globals.oscZenith[highZ],
+                                                  zenithValue);
+                deltaPath /= pathSigma;
+                upperBinZenith = std::exp(-0.5*deltaPath*deltaPath);
+            }
+
             double lowerZenith = 0.0;
-            if (0 <= lowZ) {
+            if (0 <= lowZ and sigmaZ > 1E-8) {
                 double binValue = globals.oscZenith[lowZ];
                 // Smooth over angle since it's the direction that is
                 // uncertain
                 double deltaZ = std::acos(binValue) - std::acos(zenithValue);
                 deltaZ /= sigmaZ;
                 lowerZenith = std::exp(-0.5*deltaZ*deltaZ);
-                // Smoothing over a range of path lengths. This apply the L/E
-                // resolution.
-                if (pathSigma > 1E-8) {
-                    double deltaPath = zenithBinDelta(binValue, zenithValue);
-                    deltaPath /= pathSigma;
-                    lowerBinZenith = std::exp(-0.5*deltaPath*deltaPath);
-                }
             }
+
             double upperZenith = 0.0;
-            if (highZ < globals.oscZenith.size()) {
+            if (highZ < globals.oscZenith.size() and sigmaZ > 1E-8) {
                 double binValue = globals.oscZenith[highZ];
                 // Smooth over angle since it's the direction that is
                 // uncertain
                 double deltaZ = std::acos(binValue)- std::acos(zenithValue);
                 deltaZ /= sigmaZ;
                 upperZenith = std::exp(-0.5*deltaZ*deltaZ);
-                // Smoothing over a range of path lengths. This apply the L/E
-                // resolution.
-                double deltaPath = zenithBinDelta(binValue,zenithValue);
-                deltaPath /= pathSigma;
-                upperBinZenith = std::exp(-0.5*deltaPath*deltaPath);
             }
+
             // Calculate the area correction around the high and low points.
             double dUpperE = 0.0;
             if (highE < globals.oscEnergies.size()-1) {
@@ -932,6 +942,7 @@ int weightTable(const char* name, int bins,
                 dLowerZ += 0.5*zenithBinDelta(globals.oscZenith[lowZ-1],
                                               globals.oscZenith[lowZ]);
             }
+
             if (dUpperE < 0 or dLowerE<0 or dUpperZ < 0 or dLowerZ < 0) {
                 LIB_COUT << "smoothing area"
                          << " dUpperE " << dUpperE
@@ -945,6 +956,7 @@ int weightTable(const char* name, int bins,
                          << std::endl;
                 std::exit(1);
             }
+
             int lastEntry = entry;
             if (entries < entry+4) {
                 LIB_CERR << "Weight table too small: " << entries
@@ -957,7 +969,7 @@ int weightTable(const char* name, int bins,
                 index[entry] = IDX(highE,highZ);
                 weights[entry] = upperEnergy*upperZenith;
                 weights[entry] *= upperBinEnergy*upperBinZenith;
-                if (weights[entry] > thres) {
+                if (weights[entry] > 0.0) {
                     weights[entry] *= dUpperE*dUpperZ;
                     ++entry;
                 }
@@ -966,7 +978,7 @@ int weightTable(const char* name, int bins,
                 index[entry] = IDX(lowE,lowZ);
                 weights[entry] = lowerEnergy*lowerZenith;
                 weights[entry] *= lowerBinEnergy*lowerBinZenith;
-                if (weights[entry] > thres) {
+                if (weights[entry] > 0.0) {
                     weights[entry] *= dLowerE*dLowerZ;
                     ++entry;
                 }
@@ -976,7 +988,7 @@ int weightTable(const char* name, int bins,
                 index[entry] = IDX(highE,lowZ);
                 weights[entry] = upperEnergy*lowerZenith;
                 weights[entry] *= upperBinEnergy*lowerBinZenith;
-                if (weights[entry] > thres) {
+                if (weights[entry] > 0.0) {
                     weights[entry] *= dUpperE*dLowerZ;
                     ++entry;
                 }
@@ -986,7 +998,7 @@ int weightTable(const char* name, int bins,
                 index[entry] = IDX(lowE,highZ);
                 weights[entry] = lowerEnergy*upperZenith;
                 weights[entry] *= lowerBinEnergy*upperBinZenith;
-                if (weights[entry] > thres) {
+                if (weights[entry] > 0.0) {
                     weights[entry] *= dLowerE*dUpperZ;
                     ++entry;
                 }
@@ -1012,23 +1024,29 @@ int weightTable(const char* name, int bins,
                       << std::endl;
 #endif
             if (lastEntry == entry) break;
+            if (upperBinZenith<windowThres and lowerBinZenith<windowThres) break;
+            if (upperZenith<windowThres and lowerZenith<windowThres) break;
         } while (++iz < globals.oscZenith.size());
-        if (upperBinEnergy < thres and lowerBinEnergy < thres) break;
-        if (upperEnergy < thres and lowerEnergy < thres) break;
+        if (upperBinEnergy<windowThres and lowerBinEnergy<windowThres) break;
+        if (upperEnergy<windowThres and lowerEnergy<windowThres) break;
     }
 
     // Fix the normalization.
     double sum = 0;
     double maxWeight = 0.0;
+    const double weightThres = 0.05;
+    for (int i = 0; i < entry; ++i) maxWeight = std::max(maxWeight, weights[i]);
     for (int i = 0; i < entry; ++i) {
+        if (weights[i] < weightThres*maxWeight) continue;
         sum += weights[i];
-        maxWeight = std::max(maxWeight, weights[i]);
     }
     int iEntry = 0;
+    double norm = 0.0;
     for (int i = 0; i < entry; ++i) {
-        if (weights[i] < thres*maxWeight) continue;
+        if (weights[i] < weightThres*maxWeight) continue;
         weights[iEntry] = weights[i]/sum;
         index[iEntry] = index[i];
+        norm += weights[iEntry];
         ++iEntry;
     }
 
@@ -1036,7 +1054,9 @@ int weightTable(const char* name, int bins,
     std::cout << "reweight "
               << energyValue << " " << zenithValue
               << " with " << iEntry << "/" << entry << " entries"
-              << " and sum " << sum << std::endl;
+              << ", sum " << sum
+              << ", and norm " << norm
+              << std::endl;
 #endif
 
     return iEntry;
