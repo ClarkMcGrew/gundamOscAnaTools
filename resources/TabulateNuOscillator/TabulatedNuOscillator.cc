@@ -71,6 +71,10 @@ void TabulatedNuOscillator::FillEnergyArray(
         FillInverseEnergyArray(energies,eMin,eMax,eRes);
     }
     else {
+        LIB_COUT << "WARNING -- Logarithmic energy step loses precision"
+                 << std::endl;
+        LIB_COUT << "WARNING -- Use inverse, instead logarithmic energy step"
+                 << std::endl;
         FillLogarithmicEnergyArray(energies,eMin,eMax);
     }
 
@@ -255,10 +259,10 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 // MIN_ENERGY <double> -- Minimum neutrino energy in GeV
 // MAX_ENERGY <double> -- Maximum neutrino energy in GeV
 // ENERGY_STEP {inverse,logarithmic} -- The energy binning to use (def: inverse)
-// ENERGY_SMOOTH <double> -- The inverse E smoothing (def: 0.1)
-// ENERGY_RESOLUTION <double> -- Fractional energy resolution to smooth over (def: 0.1)
+// ENERGY_SMOOTH <double> -- The 1/E (1/GeV) smoothing (dev 0.1, limits bins considered).
+// ENERGY_RESOLUTION <double> -- Fractional energy resolution to smooth over (def: 0.05)
 // ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
-// ZENITH_SMOOTH <integer> -- The pathlength (km) smoothing (def: 100).
+// ZENITH_SMOOTH <integer> -- The pathlength (km) smoothing (def: 100, limits bins considered).
 // ZENITH_RESOLUTION <double> -- Angle (radian) to smooth over (def: 0.05).
 // DENSITY <double>    -- Density in gm/cc
 // ELECTRON_DENSITY <double> -- Almost always 0.5
@@ -587,6 +591,20 @@ int initializeTable(const char* name, int argc, const char* argv[],
     return bins;
 }
 
+// Calculate the approximate "delta" along the energy axis.  The table spacing
+// is approximately 1/E while the bins are labeled by E.  This is the
+// difference in 1/E.  This returns the absolute value of the change.
+double energyBinDelta(double e2, double e1) {
+    double v = 1/e2 - 1/e1;
+    return std::abs(v);
+}
+
+// Calculate the approximate "delta" along the zenith angle axis.  The table
+// spacing is approximately by path length while the bins are labeled in
+// cos(zenithAngle).  This is the approximate difference in path length. This
+// returns the absolute value of the change.
+// TBD
+
 // Provide the weightTable entry point required by the GUNDAM tabulated dials.
 // The `index[]` and `weights[]` arrays must have at least `entries` elements
 // allocated.  The function returns the number of entries filled in the
@@ -699,7 +717,7 @@ int weightTable(const char* name, int bins,
             // Smooth over the 1/E resolution.  This applies the L/E
             // resolution.
             if (energyBinSigma > 1E-8) {
-                double deltaInvE = 1.0/binValue - 1.0/energyValue;
+                double deltaInvE = energyBinDelta(binValue,energyValue);
                 deltaInvE /= energyBinSigma;
                 lowerBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
             }
@@ -714,7 +732,7 @@ int weightTable(const char* name, int bins,
             // Smooth over the 1/E resolution.  This applies the L/E
             // resolution.
             if (energyBinSigma > 1E-8) {
-                double deltaInvE = 1.0/binValue - 1.0/energyValue;
+                double deltaInvE = energyBinDelta(binValue,energyValue);
                 deltaInvE /= energyBinSigma;
                 upperBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
             }
@@ -724,12 +742,12 @@ int weightTable(const char* name, int bins,
             if (ie == 0 and iz == 0) {
                 double dE = 0.0;
                 if (energyIndex < 1) {
-                    dE += (1.0/globals.oscEnergies[energyIndex]
-                           - 1.0/globals.oscEnergies[energyIndex+1]);
+                    dE += energyBinDelta(globals.oscEnergies[energyIndex],
+                                         globals.oscEnergies[energyIndex+1]);
                 }
                 else {
-                    dE += (1.0/globals.oscEnergies[energyIndex-1]
-                           - 1.0/globals.oscEnergies[energyIndex]);
+                    dE += energyBinDelta(globals.oscEnergies[energyIndex-1],
+                                         globals.oscEnergies[energyIndex]);
                 }
                 double dZ = 0.0;
                 if (globals.oscZenith.size() < 1) {
@@ -774,10 +792,10 @@ int weightTable(const char* name, int bins,
 
                 double wE = 0.0;
                 if (energyIndex > 0) {
-                    wE = 1.0/energyValue
-                        - 1.0/globals.oscEnergies[energyIndex];
-                    wE /= 1.0/globals.oscEnergies[energyIndex-1]
-                        - 1.0/globals.oscEnergies[energyIndex];
+                    wE = energyBinDelta(energyValue,
+                                        globals.oscEnergies[energyIndex]);
+                    wE /= energyBinDelta(globals.oscEnergies[energyIndex-1],
+                                         globals.oscEnergies[energyIndex]);
                 }
                 if (wE < 0.0 or 1.0 < wE) {
                     LIB_COUT << "Bad energy value" << std::endl;
@@ -844,21 +862,21 @@ int weightTable(const char* name, int bins,
             // Calculate the area correction around the high and low points.
             double dUpperE = 0.0;
             if (highE < globals.oscEnergies.size()-1) {
-                dUpperE += 0.5*(1.0/globals.oscEnergies[highE]
-                                - 1.0/globals.oscEnergies[highE+1]);
+                dUpperE += 0.5*energyBinDelta(globals.oscEnergies[highE],
+                                               globals.oscEnergies[highE+1]);
             }
             if (0 < highE and highE < globals.oscEnergies.size()) {
-                dUpperE += 0.5*(1.0/globals.oscEnergies[highE-1]
-                                - 1.0/globals.oscEnergies[highE]);
+                dUpperE += 0.5*energyBinDelta(globals.oscEnergies[highE-1],
+                                               globals.oscEnergies[highE]);
             }
             double dLowerE = 0.0;
             if (lowE < globals.oscEnergies.size()-1) {
-                dLowerE += 0.5*(1.0/globals.oscEnergies[lowE]
-                                - 1.0/globals.oscEnergies[lowE+1]);
+                dLowerE += 0.5*energyBinDelta(globals.oscEnergies[lowE],
+                                               globals.oscEnergies[lowE+1]);
             }
             if (0 < lowE and lowE < globals.oscEnergies.size()) {
-                dLowerE += 0.5*(1.0/globals.oscEnergies[lowE-1]
-                                - 1.0/globals.oscEnergies[lowE]);
+                dLowerE += 0.5*energyBinDelta(globals.oscEnergies[lowE-1],
+                                               globals.oscEnergies[lowE]);
             }
             double dUpperZ = 0.0;
             if (highZ < globals.oscZenith.size()-1) {
