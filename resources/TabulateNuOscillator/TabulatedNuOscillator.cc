@@ -34,7 +34,12 @@ TabulatedNuOscillator::GlobalLookup TabulatedNuOscillator::globalLookup;
 
 void TabulatedNuOscillator::FillInverseEnergyArray(
     std::vector<FLOAT_T>& energies, double eMin, double eMax, double eRes) {
-    const double minFraction = 1.0-eRes; // about 20 logarithmic steps.
+    double minFraction = std::min(1.0*energies.size(),50.0);
+    minFraction
+        = std::min(minFraction,
+                   std::exp(-2.0*(std::log(eMax)-std::log(eMin))/minFraction));
+    minFraction = std::min(minFraction, 1.0-eRes);
+    if (eRes < 1E-8) minFraction = 0.0; // zero turns off limit
     double step = (1.0/eMin - 1.0/eMax)/(energies.size()-1);
     std::size_t bin = 0;
     double lastInvE = 1.0/eMax;
@@ -50,6 +55,7 @@ void TabulatedNuOscillator::FillInverseEnergyArray(
         energies[bin++] = 1.0/invE;
         lastInvE = invE;
     };
+    if (energies[bin-1]>eMin) energies[bin-1] = eMin;
 }
 
 void TabulatedNuOscillator::FillLogarithmicEnergyArray(
@@ -82,6 +88,9 @@ void TabulatedNuOscillator::FillEnergyArray(
     std::sort(energies.begin(), energies.end());
     energies[0] = eMin;
     energies[energies.size()-1] = eMax;
+    for(int i = 0; i<energies.size(); ++i) {
+        std::cout << "E " << i << " " << energies[i] << std::endl;
+    }
 }
 
 void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
@@ -783,12 +792,14 @@ int weightTable(const char* name, int bins,
     }
     int entry = 0;
 
+    // Average over a window
     const double energyBinSigma = globals.oscEnergySmooth;
     const double pathSigma = globals.oscZenithSmooth;
 
-    // Average over a window
+    // Smooth over the resolution
     const double sigmaE = globals.oscEnergyResol; // percent energy smoothing.
     const double sigmaZ = globals.oscZenithResol; // angular smoothing (radian)
+
     const double windowThres = 0.1; // about +/- 2 sigma around center
     for (int ie = 0; ie < globals.oscEnergies.size(); ++ie) {
         // The lowE is the index of lower energy bin.  The location of the
