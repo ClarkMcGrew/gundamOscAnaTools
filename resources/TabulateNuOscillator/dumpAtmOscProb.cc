@@ -13,6 +13,7 @@
 #include <TGraph2D.h>
 #include <TProfile2D.h>
 #include <TPad.h>
+#include <TStyle.h>
 
 #include "TabulatedNuOscillator.hh"
 
@@ -354,6 +355,8 @@ void PlotProbabilities(std::string name, std::vector<double> table,
                        std::vector<FLOAT_T> zenith,
                        std::vector<FLOAT_T> params) {
     std::cout << "    Plot " << name << std::endl;
+    gStyle->SetCanvasDefH(1000);
+    gStyle->SetCanvasDefW(1400);
 
     std::ostringstream title;
     title << "Oscillation probability for " << flux << " to " << inter;
@@ -487,27 +490,53 @@ void PlotProbabilities(std::string name, std::vector<double> table,
         gPad->Print(fName.str().c_str());
     }
 
-    TGraph energyPlot;
+    TGraph energyPlotLow;
     {
         std::ostringstream tmp;
         tmp << "Probability at cosZ of " << zenith[0];
-        energyPlot.SetTitle(title.str().c_str());
-        energyPlot.GetYaxis()->SetTitle(tmp.str().c_str());
-        energyPlot.GetXaxis()->SetTitle("Energy (GeV)");
+        energyPlotLow.SetTitle(title.str().c_str());
+        energyPlotLow.GetYaxis()->SetTitle(tmp.str().c_str());
+        energyPlotLow.GetXaxis()->SetTitle("Energy (GeV)");
     }
     for (int i = 0; i < energies.size(); ++i) {
         double e = energies[i];
         double z = zenith[0];
         double l = RoughZenithPath(z);
         double p = TableLookup(i,0,table,energies,zenith);
-        if (e > 0.120) break;;
-        energyPlot.SetPoint(i, e, p);
+        energyPlotLow.SetPoint(i, e, p);
+        if (e > 0.120) break;
     }
-    energyPlot.Draw("AC*");
+    energyPlotLow.Draw("AC*");
     gPad->Update();
     {
         std::ostringstream fName;
-        fName << "EnergyProb-" << flux
+        fName << "EnergyProbLow-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
+    }
+
+    TGraph energyPlotHigh;
+    {
+        std::ostringstream tmp;
+        tmp << "Probability at cosZ of " << zenith[0];
+        energyPlotHigh.SetTitle(title.str().c_str());
+        energyPlotHigh.GetYaxis()->SetTitle(tmp.str().c_str());
+        energyPlotHigh.GetXaxis()->SetTitle("Energy (GeV)");
+    }
+    for (int i = 0; i < energies.size(); ++i) {
+        double e = energies[i];
+        if (e < 1.1) continue;
+        double z = zenith[0];
+        double l = RoughZenithPath(z);
+        double p = TableLookup(i,0,table,energies,zenith);
+        energyPlotHigh.SetPoint(i, std::log10(e), p);
+    }
+    energyPlotHigh.Draw("AC*");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "EnergyProbHigh-" << flux
               << "-" << inter
               << ".png";
         gPad->Print(fName.str().c_str());
@@ -518,10 +547,10 @@ int main(int argc, char** argv) {
     std::string enrStep{"inverse"};
     std::string enr{"100"};
     std::string enrSmt{"0.1"};
-    std::string enrRes{"0.05"};
+    std::string enrRes{"0.01"};
     std::string zen{"100.0"};
-    std::string zenSmt{"200"};
-    std::string zenRes{"0.03"};
+    std::string zenSmt{"100"};
+    std::string zenRes{"1.0"};
     std::string oscer{"cudaprob3"};
 
     if (argc > 1) enr = argv[1];
@@ -578,6 +607,8 @@ int main(int argc, char** argv) {
                                   7.53e-5,  // dms21
                                   2.509e-3, // dms32
                                   -1.601};  // dcp
+
+    std::cout << "TABLES INITIALIZED" << std::endl;
 
     // Check the update function.
     std::vector<double> par = pdgPar;
