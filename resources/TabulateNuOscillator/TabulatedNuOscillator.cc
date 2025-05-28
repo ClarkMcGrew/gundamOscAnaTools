@@ -282,10 +282,10 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 // MAX_ENERGY <double> -- Maximum neutrino energy in GeV
 // ENERGY_STEP {inverse,logarithmic} -- The energy binning to use (def: inverse)
 // ENERGY_SMOOTH <double> -- The 1/E (1/GeV) smoothing (dev 0.1, limits bins considered).
-// ENERGY_RESOLUTION <double> -- Fractional energy resolution to smooth over (def: 0.05)
+// ENERGY_RESOLUTION <double> -- Fractional energy resolution to smooth over (def: 0.02)
 // ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
 // ZENITH_SMOOTH <integer> -- The pathlength (km) smoothing (def: 100, limits bins considered).
-// ZENITH_RESOLUTION <double> -- Angle (radian) to smooth over (def: 0.05).
+// ZENITH_RESOLUTION <double> -- Angle (degree) to smooth over (def: 1.0).
 // DENSITY <double>    -- Density in gm/cc
 // ELECTRON_DENSITY <double> -- Almost always 0.5
 // PATH <double>       -- Path length in kilometers (for LBL)
@@ -308,10 +308,10 @@ int initializeTable(const char* name, int argc, const char* argv[],
     globals.oscDensity = 2.6; // gm/cc
     globals.oscElectronDensity = 0.5;
     globals.oscEnergyStep = "inverse";
-    globals.oscEnergySmooth = 0.1;
-    globals.oscEnergyResol = 0.05;
-    globals.oscZenithSmooth = 100.0;
-    globals.oscZenithResol = 0.05;
+    globals.oscEnergySmooth = 0.1; // 1/GeV
+    globals.oscEnergyResol = 0.02; // relative
+    globals.oscZenithSmooth = 100.0; // km
+    globals.oscZenithResol = 1.0; // degree
 
     for (int i = 0; i < argc; ++i) {
         LIB_COUT << "Argument: " << argv[i] << std::endl;
@@ -633,88 +633,9 @@ double zenithBinDelta(double c2, double c1) {
 
 #define IDX(e,z) ((z)*globals.oscEnergies.size() + (e))
 
-// Find the area scaled oscillation weight for an energy, zenith angle pair
-// relative to a energyIndex, zenithIndex element of the table.  This does
-// linear interpolation between [energyIndex, energyIndex-1, zenithIndex,
-// zenithIndex-1].
-int interpolationWeights(TabulatedNuOscillator::TableGlobals& globals,
-                         double energyValue, double zenithValue,
-                         int energyIndex, int zenithIndex,
-                         int entries, int index[], double weights[]) {
-    double dE = 0.0;
-    if (energyIndex < 1) {
-        dE += energyBinDelta(globals.oscEnergies[energyIndex],
-                             globals.oscEnergies[energyIndex+1]);
-    }
-    else {
-        dE += energyBinDelta(globals.oscEnergies[energyIndex-1],
-                             globals.oscEnergies[energyIndex]);
-    }
-    double dZ = 0.0;
-    if (globals.oscZenith.size() < 1) {
-        dZ = 1.0;
-    }
-    else if (zenithIndex < 1) {
-        dZ += zenithBinDelta(globals.oscZenith[zenithIndex],
-                             globals.oscZenith[zenithIndex+1]);
-    }
-    else {
-        dZ += zenithBinDelta(globals.oscZenith[zenithIndex-1],
-                             globals.oscZenith[zenithIndex]);
-    }
-    double area = dE*dZ;
-    if (area < 0) {
-        LIB_COUT<< "interpolation area " << area
-                << " " << dE << " " << dZ
-                << std::endl;
-        LIB_CERR << "interpolation area wrong"
-                 << std::endl;
-        std::exit(1);
-    }
-    // In the central box, use linear interpolation
-    double wZ = 0.0;
-    if (zenithIndex > 0) {
-        wZ = zenithBinDelta(zenithValue,
-                            globals.oscZenith[zenithIndex]);
-        wZ /= zenithBinDelta(globals.oscZenith[zenithIndex-1],
-                             globals.oscZenith[zenithIndex]);
-    }
-    if (wZ < 0.0 or 1.0 < wZ) {
-        LIB_COUT << "Bad zenith angle" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
-    double wE = 0.0;
-    if (energyIndex > 0) {
-        wE = energyBinDelta(energyValue,
-                            globals.oscEnergies[energyIndex]);
-        wE /= energyBinDelta(globals.oscEnergies[energyIndex-1],
-                             globals.oscEnergies[energyIndex]);
-    }
-    if (wE < 0.0 or 1.0 < wE) {
-        LIB_COUT << "Bad energy value" << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
-    for (int e = 0; e < 2; ++e) {
-        if (energyIndex - e < 0) continue;
-        for (int z = 0; z < 2; ++z) {
-            if (zenithIndex - z < 0) continue;
-            index[entries] = IDX(energyIndex-e,zenithIndex-z);
-            weights[entries] = 1.0;
-            if (e < 1) weights[entries] *= (1.0-wE);
-            else weights[entries] *= wE;
-            if (z < 1) weights[entries] *= (1.0-wZ);
-            else weights[entries] *= wZ;
-            weights[entries] *= area;
-            if (weights[entries] < 1E-10) continue;
-            ++entries;
-        }
-    }
-
-    return entries;
-}
-
+// Add a weight to the output list.  The bin in the table is ie,iz (energy,
+// zenith).  The weight is calculated from smooth*window*area, and it is added
+// if smooth*window more than zero.
 int AddWeight(TabulatedNuOscillator::TableGlobals& globals,
               int ie, int iz,
               double smooth, double window, double area,
@@ -829,9 +750,10 @@ int weightTable(const char* name, int bins,
     const double energyBinSigma = globals.oscEnergySmooth;
     const double pathSigma = globals.oscZenithSmooth;
 
-    // Smooth over the resolution
+    // Smooth over the resolution.  The energy resolution is relative, and the
+    // zenith resolution is in degrees.
     const double sigmaE = globals.oscEnergyResol; // percent energy smoothing.
-    const double sigmaZ = globals.oscZenithResol; // angular smoothing (radian)
+    const double sigmaZ = 3.14159*globals.oscZenithResol/180.0;
 
     const double windowThres = 0.1; // about +/- 2 sigma around center
     for (int ie = 0; ie < globals.oscEnergies.size(); ++ie) {
@@ -850,25 +772,50 @@ int weightTable(const char* name, int bins,
         // Find the weight for the averaging window.  This will be ignored for
         // the central box.
         double lowerBinEnergy = 0.0;
-        if (0 <= lowE and energyBinSigma > 1E-8) {
-            double deltaInvE = energyBinDelta(globals.oscEnergies[lowE],
-                                              energyValue);
-            deltaInvE /= energyBinSigma;
-            lowerBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
+        if (0 <= lowE) {
+            if (ie == 0) {
+                if (highE < globals.oscEnergies.size()) {
+                    double delta = energyBinDelta(energyValue,
+                                                  globals.oscEnergies[lowE]);
+                    double diff = energyBinDelta(globals.oscEnergies[highE],
+                                                 globals.oscEnergies[lowE]);
+                    lowerBinEnergy = 1.0 - delta/diff;
+                }
+                else lowerBinEnergy = 1.0;
+            }
+            else if (energyBinSigma > 1E-8) {
+                double deltaInvE = energyBinDelta(globals.oscEnergies[lowE],
+                                                  energyValue);
+                deltaInvE /= energyBinSigma;
+                lowerBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
+            }
         }
 
         double upperBinEnergy = 0.0;
-        if (highE < globals.oscEnergies.size() and energyBinSigma > 1E-8) {
-            double deltaInvE = energyBinDelta(globals.oscEnergies[highE]
-                                              ,energyValue);
-            deltaInvE /= energyBinSigma;
-            upperBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
+        if (highE < globals.oscEnergies.size()) {
+            if (ie == 0) {
+                if (0 <= lowE) {
+                    double delta = energyBinDelta(globals.oscEnergies[highE],
+                                                  energyValue);
+                    double diff = energyBinDelta(globals.oscEnergies[highE],
+                                                 globals.oscEnergies[lowE]);
+                    upperBinEnergy = 1.0 - delta/diff;
+                }
+                else upperBinEnergy = 1.0;
+            }
+            else if (energyBinSigma > 1E-8) {
+                double deltaInvE = energyBinDelta(globals.oscEnergies[highE]
+                                                  ,energyValue);
+                deltaInvE /= energyBinSigma;
+                upperBinEnergy = std::exp(-0.5*deltaInvE*deltaInvE);
+            }
         }
 
         // Find the weight for the energy resolution smoothing.  This will be
         // ignored for the central box.
         double lowerEnergy = 0.0;
-        if (0 <= lowE and sigmaE > 1E-8) {
+        if (ie == 0) lowerEnergy = 1.0;
+        else if (0 <= lowE and sigmaE > 1E-8) {
             double binValue = globals.oscEnergies[lowE];
             // Smooth of the neutrino energy resolution
             double deltaE = binValue - energyValue;
@@ -877,7 +824,8 @@ int weightTable(const char* name, int bins,
         }
 
         double upperEnergy = 0.0;
-        if (highE < globals.oscEnergies.size() and sigmaE > 1E-8) {
+        if (ie == 0) upperEnergy = 1.0;
+        else if (highE < globals.oscEnergies.size() and sigmaE > 1E-8) {
             double binValue = globals.oscEnergies[highE];
             double deltaE = binValue - energyValue;
             deltaE /= energyValue*sigmaE;
@@ -886,23 +834,6 @@ int weightTable(const char* name, int bins,
 
         int iz = 0;
         do {
-            if (ie == 0 and iz == 0) {
-                // At the central point, so do linear interpolation from the
-                // corners of the box enclosing the energy and zenith values.
-                entry = interpolationWeights(globals,
-                                             energyValue, zenithValue,
-                                             energyIndex, zenithIndex,
-                                             entry, index, weights);
-                continue;
-            }
-#ifdef INTERPOLATE_ONLY
-#warning Skip smoothing in zenith angle
-            break;
-#endif
-
-            // Not at the central point, so use Gaussian weighting. This is
-            // finding the weights for one bin below, and one bin above the
-            // central value.
 
             // The lowZ is the index of lower zenith bin.  The location of the
             // bin will always be less than or equal to zenithValue.  The lowZ
@@ -918,24 +849,49 @@ int weightTable(const char* name, int bins,
             int highZ = zenithIndex + iz;
 
             double lowerBinZenith = 0.0;
-            if (0 <= lowZ and pathSigma > 1E-8) {
-                double deltaPath = zenithBinDelta(globals.oscZenith[lowZ],
-                                                  zenithValue);
-                deltaPath /= pathSigma;
-                lowerBinZenith = std::exp(-0.5*deltaPath*deltaPath);
+            if (0 <= lowZ) {
+                if (iz == 0) {
+                    if (highZ < globals.oscZenith.size()) {
+                        double delta = zenithBinDelta(globals.oscZenith[lowZ],
+                                                      zenithValue);
+                        double diff = zenithBinDelta(globals.oscZenith[highZ],
+                                                     globals.oscZenith[lowZ]);
+                        lowerBinZenith = 1.0 - delta/diff;
+                    }
+                    else lowerBinZenith = 1.0;
+                }
+                else if (pathSigma > 1E-8) {
+                    double deltaPath = zenithBinDelta(globals.oscZenith[lowZ],
+                                                      zenithValue);
+                    deltaPath /= pathSigma;
+                    lowerBinZenith = std::exp(-0.5*deltaPath*deltaPath);
+                }
             }
 
             double upperBinZenith = 0.0;
-            if (highZ < globals.oscZenith.size() and pathSigma>1E-8) {
-                double deltaPath = zenithBinDelta(globals.oscZenith[highZ],
-                                                  zenithValue);
-                deltaPath /= pathSigma;
-                upperBinZenith = std::exp(-0.5*deltaPath*deltaPath);
+            if (highZ < globals.oscZenith.size()) {
+                if (iz == 0) {
+                    if (0 <= lowZ) {
+                        double delta = zenithBinDelta(globals.oscZenith[highZ],
+                                                      zenithValue);
+                        double diff = zenithBinDelta(globals.oscZenith[highZ],
+                                                     globals.oscZenith[lowZ]);
+                        upperBinZenith = 1.0 - delta/diff;
+                    }
+                    else upperBinZenith = 1.0;
+                }
+                else if (pathSigma > 1E-8) {
+                    double deltaPath = zenithBinDelta(globals.oscZenith[highZ],
+                                                      zenithValue);
+                    deltaPath /= pathSigma;
+                    upperBinZenith = std::exp(-0.5*deltaPath*deltaPath);
+                }
             }
             if (upperBinZenith<windowThres && lowerBinZenith<windowThres) break;
 
             double lowerZenith = 0.0;
-            if (0 <= lowZ and sigmaZ > 1E-8) {
+            if (iz == 0) lowerZenith = 1.0;
+            else if (0 <= lowZ and sigmaZ > 1E-8) {
                 double binValue = globals.oscZenith[lowZ];
                 // Smooth over angle since it's the direction that is
                 // uncertain
@@ -945,7 +901,8 @@ int weightTable(const char* name, int bins,
             }
 
             double upperZenith = 0.0;
-            if (highZ < globals.oscZenith.size() and sigmaZ > 1E-8) {
+            if (iz == 0) upperZenith = 1.0;
+            else if (highZ < globals.oscZenith.size() and sigmaZ > 1E-8) {
                 double binValue = globals.oscZenith[highZ];
                 // Smooth over angle since it's the direction that is
                 // uncertain
@@ -959,21 +916,43 @@ int weightTable(const char* name, int bins,
             double dUpperE = 0.0;
             if (0 <= highE and highE < globals.oscEnergies.size()-1) {
                 dUpperE += 0.5*energyBinDelta(globals.oscEnergies[highE],
-                                               globals.oscEnergies[highE+1]);
+                                              globals.oscEnergies[highE+1]);
             }
             if (0 < highE and highE < globals.oscEnergies.size()) {
                 dUpperE += 0.5*energyBinDelta(globals.oscEnergies[highE-1],
-                                               globals.oscEnergies[highE]);
+                                              globals.oscEnergies[highE]);
             }
+
             double dLowerE = 0.0;
             if (0 <= lowE and lowE < globals.oscEnergies.size()-1) {
                 dLowerE += 0.5*energyBinDelta(globals.oscEnergies[lowE],
-                                               globals.oscEnergies[lowE+1]);
+                                              globals.oscEnergies[lowE+1]);
             }
             if (0 < lowE and lowE < globals.oscEnergies.size()) {
                 dLowerE += 0.5*energyBinDelta(globals.oscEnergies[lowE-1],
-                                               globals.oscEnergies[lowE]);
+                                              globals.oscEnergies[lowE]);
             }
+
+            // Check if the area is for the central bin and override the
+            // area correction if it is.
+            if (ie == 0) {
+                if (0 <= lowE and highE < globals.oscEnergies.size()) {
+                    dLowerE = energyBinDelta(globals.oscEnergies[highE],
+                                             globals.oscEnergies[lowE]);
+                }
+                else if (lowE < 0) {
+                    dLowerE = energyBinDelta(globals.oscEnergies[1],
+                                             globals.oscEnergies[0]);
+                }
+                else if (globals.oscEnergies.size() <= highE) {
+                    dLowerE = energyBinDelta(
+                        globals.oscEnergies[globals.oscEnergies.size()-1],
+                        globals.oscEnergies[globals.oscEnergies.size()-2]);
+                }
+                else dLowerE = 0.0;
+                dUpperE = dLowerE;
+            }
+
             double dUpperZ = 0.0;
             if (0 <= highZ and highZ < globals.oscZenith.size()-1) {
                 dUpperZ += 0.5*zenithBinDelta(globals.oscZenith[highZ],
@@ -983,6 +962,7 @@ int weightTable(const char* name, int bins,
                 dUpperZ += 0.5*zenithBinDelta(globals.oscZenith[highZ-1],
                                               globals.oscZenith[highZ]);
             }
+
             double dLowerZ = 0.0;
             if (0 <= lowZ and lowZ < globals.oscZenith.size()-1) {
                 dLowerZ += 0.5*zenithBinDelta(globals.oscZenith[lowZ],
@@ -991,6 +971,27 @@ int weightTable(const char* name, int bins,
             if (0 < lowZ and lowZ < globals.oscZenith.size()) {
                 dLowerZ += 0.5*zenithBinDelta(globals.oscZenith[lowZ-1],
                                               globals.oscZenith[lowZ]);
+            }
+
+
+            // Check if the area is for the central bin and override the
+            // area correction if it is.
+            if (ie == 0) {
+                if (0 <= lowZ and highZ < globals.oscZenith.size()) {
+                    dLowerZ = zenithBinDelta(globals.oscZenith[highZ],
+                                             globals.oscZenith[lowZ]);
+                }
+                else if (lowZ < 0) {
+                    dLowerZ = zenithBinDelta(globals.oscZenith[1],
+                                             globals.oscZenith[0]);
+                }
+                else if (globals.oscZenith.size() <= highZ) {
+                    dLowerZ = zenithBinDelta(
+                        globals.oscZenith[globals.oscZenith.size()-1],
+                        globals.oscZenith[globals.oscZenith.size()-2]);
+                }
+                else dLowerZ = 0.0;
+                dUpperZ = dLowerZ;
             }
 
             if (dUpperE < 0 or dLowerE<0 or dUpperZ < 0 or dLowerZ < 0) {
@@ -1056,7 +1057,12 @@ int weightTable(const char* name, int bins,
         totalWeight += weights[i];
     }
 
-    double weightThres = 0.05*maxWeight;
+    double weightThres = 0.01*totalWeight;
+    if (maxWeight > 0.3*totalWeight) {
+        weightThres = std::max(weightThres,0.05*maxWeight);
+    }
+    weightThres = 0.05*maxWeight;
+
 #ifdef SORTED_WEIGHTS
     // Fill work area with weights in decreasing order.
     static std::vector<double> workArea;
