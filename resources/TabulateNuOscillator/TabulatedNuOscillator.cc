@@ -131,7 +131,7 @@ void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
     double minPath = RoughZenithPath(maxCos);
     double maxPath = RoughZenithPath(minCos);
     double step = (maxPath - minPath)/(zenith.size());
-    double maxCosZStep = 0.5/std::sqrt(zenith.size());
+    double maxCosZStep = 0.05;  // 40 bins, but could be a parameter.
     double path = minPath;
     double lastC = maxCos;
     int bin = 0;
@@ -301,7 +301,7 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 // ENERGY_RESOLUTION <double> -- Fractional energy resolution to smooth over (def: 0.02)
 // ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
 // ZENITH_SMOOTH <integer> -- The pathlength (km) smoothing (def: 100, limits bins considered).
-// ZENITH_RESOLUTION <double> -- Angle (degree) to smooth over (def: 1.0).
+// ZENITH_RESOLUTION <double> -- Angle (radian) to smooth over at horizon (def: 0.05).
 // DENSITY <double>    -- Density in gm/cc
 // ELECTRON_DENSITY <double> -- Almost always 0.5
 // PATH <double>       -- Path length in kilometers (for LBL)
@@ -327,7 +327,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
     globals.oscEnergySmooth = 0.1; // 1/GeV
     globals.oscEnergyResol = 0.02; // relative
     globals.oscZenithSmooth = 100.0; // km
-    globals.oscZenithResol = 1.0; // degree
+    globals.oscZenithResol = 0.05; // radian
 
     for (int i = 0; i < argc; ++i) {
         LIB_COUT << "Argument: " << argv[i] << std::endl;
@@ -769,7 +769,7 @@ int weightTable(const char* name, int bins,
     // Smooth over the resolution.  The energy resolution is relative, and the
     // zenith resolution is in degrees.
     const double sigmaE = globals.oscEnergyResol; // percent energy smoothing.
-    const double sigmaZ = 3.14159*globals.oscZenithResol/180.0;
+    const double sigmaZ = globals.oscZenithResol;
 
     const double windowThres = 0.1; // about +/- 2 sigma around center
     for (int ie = 0; ie < globals.oscEnergies.size(); ++ie) {
@@ -909,9 +909,15 @@ int weightTable(const char* name, int bins,
             if (iz == 0) lowerZenith = 1.0;
             else if (0 <= lowZ and sigmaZ > 1E-8) {
                 double binValue = globals.oscZenith[lowZ];
+#ifdef ANGLE_SMOOTHING
                 // Smooth over angle since it's the direction that is
                 // uncertain
                 double deltaZ = std::acos(binValue) - std::acos(zenithValue);
+#else
+                // Smooth over angle since it's the direction that is
+                // uncertain
+                double deltaZ = binValue - zenithValue;
+#endif
                 deltaZ /= sigmaZ;
                 lowerZenith = std::exp(-0.5*deltaZ*deltaZ);
             }
