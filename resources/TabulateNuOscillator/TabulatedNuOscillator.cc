@@ -34,20 +34,36 @@ TabulatedNuOscillator::GlobalLookup TabulatedNuOscillator::globalLookup;
 
 void TabulatedNuOscillator::FillInverseEnergyArray(
     std::vector<FLOAT_T>& energies, double eMin, double eMax, double eRes) {
-    double minFraction = std::min(1.0*energies.size(),50.0);
-    minFraction
-        = std::min(minFraction,
-                   std::exp(-2.0*(std::log(eMax)-std::log(eMin))/minFraction));
-    minFraction = std::min(minFraction, 1.0-eRes);
-    if (eRes < 1E-8) minFraction = 0.0; // zero turns off limit
+    // ADJUST THIS COMMENT IF THE EXPECTED BINNING CHANGES: The fit is
+    // expected to have about 20 energy bins roughly uniform in log(E), and
+    // there should be at least three or four energy steps calculated per bin.
+    // This leads to 80 energy grid points.
+    double minFraction = std::exp(-(std::log(eMax)-std::log(eMin))/80);
+    // When the total number of energy samples is to small, the fraction must
+    // be bigger.  The fraction is picked to need slightly fewer limited steps
+    // than energy grid points.
+    double maxFraction = std::exp(-1.5*(std::log(eMax)-std::log(eMin))/energies.size());
+    // The user wants steps closer than a particular energy resolution.
+    double targetFraction = 1.0-eRes;
+    // Choose the actual limiting fraciton.
+    double fractionLimit = targetFraction;
+    fractionLimit = std::max(fractionLimit,minFraction);
+    fractionLimit = std::min(fractionLimit,maxFraction);
+    if (eRes < 1E-8) fractionLimit = 0.0; // zero turns off limit
+    std::cout << "Energy step "
+              << " target: " << targetFraction
+              << " min: " << minFraction
+              << " max: " << maxFraction
+              << " used: " << fractionLimit
+              << std::endl;
     double step = (1.0/eMin - 1.0/eMax)/(energies.size()-1);
     std::size_t bin = 0;
     double lastInvE = 1.0/eMax;
     energies[bin++] = 1.0/lastInvE;
     while (bin < energies.size()) {
         double invE = lastInvE + step;
-        if (1.0/invE < minFraction/lastInvE) {
-            invE = lastInvE/minFraction;
+        if (1.0/invE < fractionLimit/lastInvE) {
+            invE = lastInvE/fractionLimit;
             if (bin+1 < energies.size()) {
                 step = (1.0/eMin - invE)/(energies.size() - bin);
             }
@@ -74,7 +90,7 @@ void TabulatedNuOscillator::FillEnergyArray(
     std::vector<FLOAT_T>& energies, const std::string& type,
     double eMin, double eMax, double eRes) {
     if (type.find("inv") != std::string::npos) {
-        FillInverseEnergyArray(energies,eMin,eMax,0.0);
+        FillInverseEnergyArray(energies,eMin,eMax,0.10);
     }
     else {
         LIB_COUT << "WARNING -- Logarithmic energy step loses precision"
