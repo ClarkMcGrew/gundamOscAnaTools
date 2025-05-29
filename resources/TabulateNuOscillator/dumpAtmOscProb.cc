@@ -298,9 +298,9 @@ void AddTable(std::string config,
     }
 
     for (auto [table, global] : *tableEntry.globals) {
-        std::cout << "table: " << table << " " << global.name << std::endl;
-        std::cout << " energies: " << global.oscEnergies.size() << std::endl;
-        std::cout << " zeniths: " << global.oscZenith.size() << std::endl;
+        std::cout << "TABLE: " << table << " " << global.name << std::endl;
+        std::cout << " ENERGY GRID: " << global.oscEnergies.size() << std::endl;
+        std::cout << " ZENITH GRID: " << global.oscZenith.size() << std::endl;
         TabulatedNuOscillator::NuOscillatorConfig& config
             = (*tableEntry.configs)[global.nuOscillatorConfig];
         std::cout << " config energies: " << config.energies.size()
@@ -464,49 +464,79 @@ void PlotProbabilities(std::string name, std::vector<double> table,
         output.Close();
     }
 
-    TGraph zenithPlot;
+    TGraph zenithProbLong;
     {
+        int ie = 0;
         std::ostringstream tmp;
-        tmp << "Probability at " << int(1000*energies[0]) << " MeV";
-        zenithPlot.SetTitle(title.str().c_str());
-        zenithPlot.GetYaxis()->SetTitle(tmp.str().c_str());
-        zenithPlot.GetXaxis()->SetTitle("Path Length (km)");
+        tmp << "Probability at " << int(1000*energies[ie]) << " MeV";
+        zenithProbLong.SetTitle(title.str().c_str());
+        zenithProbLong.GetYaxis()->SetTitle(tmp.str().c_str());
+        zenithProbLong.GetXaxis()->SetTitle("Zenith direction (cosine)");
+        for (int i = 0; i < zenith.size(); ++i) {
+            double e = energies[ie];
+            double z = zenith[i];
+            if (z > -0.90) break;
+            double l = RoughZenithPath(z);
+            double p = TableLookup(0,i,table,energies,zenith);
+            zenithProbLong.SetPoint(i, z, p);
+        }
     }
-    for (int i = 0; i < zenith.size(); ++i) {
-        double e = energies[0];
-        double z = zenith[i];
-        double l = RoughZenithPath(z);
-        double p = TableLookup(0,i,table,energies,zenith);
-        if (l < 12000) break;
-        zenithPlot.SetPoint(i, l, p);
-    }
-    zenithPlot.Draw("AC*");
+
+    zenithProbLong.Draw("AL*");
     gPad->Update();
     {
         std::ostringstream fName;
-        fName << "ZenithProb-" << flux
+        fName << "ZenithProbLong-" << flux
               << "-" << inter
               << ".png";
         gPad->Print(fName.str().c_str());
     }
 
-    TGraph energyPlotLow;
+    TGraph zenithProbShort;
+    {
+        int ie = 0;
+        std::ostringstream tmp;
+        tmp << "Probability at " << int(1000*energies[ie]) << " MeV";
+        zenithProbShort.SetTitle(title.str().c_str());
+        zenithProbShort.GetYaxis()->SetTitle(tmp.str().c_str());
+        zenithProbShort.GetXaxis()->SetTitle("Zenith direction (cosine)");
+        int pnt = 0;
+        for (int i = 0; i < zenith.size(); ++i) {
+            double e = energies[ie];
+            double z = zenith[i];
+            double l = RoughZenithPath(z);
+            if (1000 < l) continue;
+            double p = TableLookup(0,i,table,energies,zenith);
+            zenithProbShort.SetPoint(pnt++, z, p);
+        }
+    }
+    zenithProbShort.Draw("AL*");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "ZenithProbShort-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
+    }
+
+    TGraph energyProbLow;
     {
         std::ostringstream tmp;
         tmp << "Probability at cosZ of " << zenith[0];
-        energyPlotLow.SetTitle(title.str().c_str());
-        energyPlotLow.GetYaxis()->SetTitle(tmp.str().c_str());
-        energyPlotLow.GetXaxis()->SetTitle("Energy (GeV)");
+        energyProbLow.SetTitle(title.str().c_str());
+        energyProbLow.GetYaxis()->SetTitle(tmp.str().c_str());
+        energyProbLow.GetXaxis()->SetTitle("Energy (GeV)");
     }
     for (int i = 0; i < energies.size(); ++i) {
         double e = energies[i];
         double z = zenith[0];
         double l = RoughZenithPath(z);
         double p = TableLookup(i,0,table,energies,zenith);
-        energyPlotLow.SetPoint(i, e, p);
+        energyProbLow.SetPoint(i, e, p);
         if (e > 0.120) break;
     }
-    energyPlotLow.Draw("AC*");
+    energyProbLow.Draw("AL*");
     gPad->Update();
     {
         std::ostringstream fName;
@@ -516,23 +546,26 @@ void PlotProbabilities(std::string name, std::vector<double> table,
         gPad->Print(fName.str().c_str());
     }
 
-    TGraph energyPlotHigh;
+    TGraph energyProbHigh;
     {
         std::ostringstream tmp;
         tmp << "Probability at cosZ of " << zenith[0];
-        energyPlotHigh.SetTitle(title.str().c_str());
-        energyPlotHigh.GetYaxis()->SetTitle(tmp.str().c_str());
-        energyPlotHigh.GetXaxis()->SetTitle("Energy (GeV)");
+        energyProbHigh.SetTitle(title.str().c_str());
+        energyProbHigh.GetYaxis()->SetTitle(tmp.str().c_str());
+        energyProbHigh.GetXaxis()->SetTitle("Energy log10(GeV)");
+        int pnt = 0;
+        for (int i = 0; i < energies.size(); ++i) {
+            double e = energies[i];
+            if (e < 1.1) continue;
+            double z = zenith[0];
+            double l = RoughZenithPath(z);
+            double p = TableLookup(i,0,table,energies,zenith);
+            // energyProbHigh.SetPoint(pnt++, e), p);
+            energyProbHigh.SetPoint(pnt++, std::log10(e), p);
+            // energyProbHigh.SetPoint(pnt++, 1/e, p);
+        }
     }
-    for (int i = 0; i < energies.size(); ++i) {
-        double e = energies[i];
-        if (e < 1.1) continue;
-        double z = zenith[0];
-        double l = RoughZenithPath(z);
-        double p = TableLookup(i,0,table,energies,zenith);
-        energyPlotHigh.SetPoint(i, std::log10(e), p);
-    }
-    energyPlotHigh.Draw("AC*");
+    energyProbHigh.Draw("AL*");
     gPad->Update();
     {
         std::ostringstream fName;
@@ -545,35 +578,35 @@ void PlotProbabilities(std::string name, std::vector<double> table,
 
 int main(int argc, char** argv) {
     std::string enrStep{"inverse"};
-    std::string enr{"100"};
-    std::string enrSmt{"0.1"};
-    std::string enrRes{"0.01"};
-    std::string zen{"100.0"};
-    std::string zenSmt{"100"};
-    std::string zenRes{"1.0"};
+    std::string enrGrid{"300"};
+    std::string enrSmt{"0.4"};
+    std::string enrRes{"0.05"};
+    std::string zenGrid{"300.0"};
+    std::string zenSmt{"800"};
+    std::string zenRes{"0.0"};
     std::string oscer{"cudaprob3"};
 
-    if (argc > 1) enr = argv[1];
-    if (argc > 2) zen = argv[2];
+    if (argc > 1) enrGrid = argv[1];
+    if (argc > 2) zenGrid = argv[2];
     if (argc > 3) enrRes = argv[3];
     if (argc > 4) zenRes = argv[4];
     if (argc > 5) enrSmt = argv[5];
     if (argc > 6) zenSmt = argv[6];
 
-    std::cout << "Generating a " << enr
-              << " x " << zen
+    std::cout << "Generating a " << enrGrid
+              << " x " << zenGrid
               << " " << enrStep << " grid" <<std::endl;
 
 #ifdef TestOscProb
 #warning "Test OscProb"
     if (oscer == "oscprob") {
         std::cout << "Testing OscProb" << std::endl;
-        AddTable("./Configs/GUNDAM_OscProb","muon","muon",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","muon","electron",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","muon","tau",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","electron",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","muon",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","tau",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
     }
 #else
 #warning "Not testing OscProb"
@@ -583,12 +616,12 @@ int main(int argc, char** argv) {
 #warning "Test CUDAProb3"
     if (oscer == "cudaprob3") {
         std::cout << "Testing CUDAProb3" << std::endl;
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
     }
 #else
 #warning "Not testing CUDAProb3"
