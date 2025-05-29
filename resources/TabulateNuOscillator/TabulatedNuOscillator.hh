@@ -117,22 +117,46 @@ namespace TabulatedNuOscillator {
     using GlobalLookup = std::map<std::string, TableGlobals>;
     extern "C" GlobalLookup globalLookup;
 
+    /// Calculate the difference between e2 and e1 based on the energy binning
+    /// used.  This is (1/e2 - 1/e1) and logarithmic binning is not used
+    /// (deprecated and considered a mistake).
+    void energyBinDelta(double e2, double e1);
+
+    /// Fill a vector with the energies that NuOscillator will used to
+    /// calculate the oscillation weights.  This fills (the preferred) 1/E
+    /// spacing.  The energy resolution is provided, and is used to limit the
+    /// overall step size.
     void FillInverseEnergyArray(std::vector<FLOAT_T>& energies,
                                 double eMin, double eMax, double eRes);
 
+    /// Fill a vector with energies.  This uses the (deprecated) log energy
+    /// step.  It is provided for testing, but shouldn't be used (much).
     void FillLogarithmicEnergyArray(std::vector<FLOAT_T>& energies,
                                     double eMin, double eMax);
 
+    /// Fill a vector with energies for NuOscillator.  This uses either
+    /// FillInverseEnergyArray, or FillLogarithmicEnergyArray.
     void FillEnergyArray(std::vector<FLOAT_T>& energies,
                          const std::string& type,
                          double eMin, double eMax, double eRes);
 
+    /// Calculate the approximate "delta" along the zenith angle axis.  The
+    /// table spacing is approximately by path length while the bins are
+    /// labeled in cos(zenithAngle).  This is the approximate difference in
+    /// path length. This returns the absolute value of the change.
+    double zenithBinDelta(double c2, double c1);
+
+    /// Fill a vector with the zenith angle binning.
     void FillZenithArray(std::vector<FLOAT_T>& zenith);
 
+    /// Calculate an approximateion of the path length for a zenith cosine.
     double RoughZenithPath(double cosz);
 
+    /// Check if two doubles are almost equal.  They both need to be within a
+    /// few 1E-10 of the average.
     bool AlmostEqual(double a, double b);
 
+    /// Make sure the globals and nuoscillator configs agree.
     void ConfigureNuOscillator(const TableGlobals& globals);
 };
 #endif

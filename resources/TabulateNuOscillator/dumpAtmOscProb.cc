@@ -13,6 +13,7 @@
 #include <TGraph2D.h>
 #include <TProfile2D.h>
 #include <TPad.h>
+#include <TStyle.h>
 
 #include "TabulatedNuOscillator.hh"
 
@@ -54,7 +55,8 @@ struct TableEntry {
         float zMax;
         float energy;
         float zenith;
-        int steps;
+        int stepE;
+        int stepZ;
         int ie;
         int iz;
         std::vector<int> index;
@@ -227,31 +229,46 @@ void AddTable(std::string config,
     {
         TabulatedNuOscillator::TableGlobals& global
             = (*tableEntry.globals)[tableEntry.name];
+        TabulatedNuOscillator::NuOscillatorConfig& config
+            = (*tableEntry.configs)[global.nuOscillatorConfig];
+        std::cout << "Nu Oscillator Config for Krigging "
+                  << global.nuOscillatorConfig << std::endl;
         int brake = 0;
-        int steps = 1000;
-        double eMin = std::log10(0.1);
-        double eMax = std::log10(100.0);
-        double zMin = -1.0;
-        double zMax = 1.0;
-        for (int ie = 0; ie<steps; ++ie) {
-            double e = eMin + ie*(eMax-eMin)/steps;
+        int stepE = 1000;
+        int stepZ = 1000;
+        std::cout << "Krig energy range " << config.energies.front()
+                  << " " << config.energies.back()
+                  << std::endl;
+        double eMin = std::log10(config.energies.front());
+        double eMax = std::log10(config.energies.back());
+        std::cout << "Krig zenith range " << config.zenith.front()
+                  << " " << config.zenith.back()
+                  << std::endl;
+        double zMin = config.zenith.front();
+        double zMax = config.zenith.back();
+        int totalEntries = 0;
+        const int tableSize = 100000;
+        int index[tableSize];
+        double weights[tableSize];
+        for (int ie = 0; ie<stepE; ++ie) {
+            double e = eMin + ie*(eMax-eMin)/(stepE);
             e = std::exp(e*std::log(10.0));
-            for (int iz = 0; iz < steps; ++iz) {
+            for (int iz = 0; iz < stepZ; ++iz) {
 
-                double z = -1.0 + iz*2.0/steps;
+                double z = zMin + iz*(zMax-zMin)/(stepZ);
                 double varv[]{e,z};
-                int index[10000];
-                double weights[10000];
                 int entries = tableEntry.weightingFunc(tableEntry.name.c_str(),
                                                        tableEntry.table.size(),
                                                        2, varv,
-                                                       10000,index,weights);
+                                                       tableSize,index,weights);
+                totalEntries += entries;
                 TableEntry::KrigWeight w;
                 w.eMin = eMin;
                 w.eMax = eMax;
                 w.zMin = zMin;
                 w.zMax = zMax;
-                w.steps = steps;
+                w.stepE = stepE;
+                w.stepZ = stepZ;
                 w.ie = ie;
                 w.iz = iz;
                 w.energy = e;
@@ -274,13 +291,16 @@ void AddTable(std::string config,
                 tableEntry.krigging.emplace_back(w);
             }
         }
+        std::cout << "Krigging weights: " << tableEntry.krigging.size()
+                  << " with " << totalEntries << " entries"
+                  << " " << 1.0*totalEntries/tableEntry.krigging.size()
+                  << " per weight" << std::endl;
     }
-    std::cout << "Krigging weights: " << tableEntry.krigging.size() << std::endl;
 
     for (auto [table, global] : *tableEntry.globals) {
-        std::cout << "table: " << table << " " << global.name << std::endl;
-        std::cout << " energies: " << global.oscEnergies.size() << std::endl;
-        std::cout << " zeniths: " << global.oscZenith.size() << std::endl;
+        std::cout << "TABLE: " << table << " " << global.name << std::endl;
+        std::cout << " ENERGY GRID: " << global.oscEnergies.size() << std::endl;
+        std::cout << " ZENITH GRID: " << global.oscZenith.size() << std::endl;
         TabulatedNuOscillator::NuOscillatorConfig& config
             = (*tableEntry.configs)[global.nuOscillatorConfig];
         std::cout << " config energies: " << config.energies.size()
@@ -317,16 +337,11 @@ double TableLookup(int enr, int zen,
 
 double Krig(std::vector<double>& table, TableEntry::KrigWeight& w) {
     double v = 0.0;
-    double sum = 0.0;
     for (int i = 0; i< w.index.size(); ++i) {
         if (w.weights[i] < 0 or w.weights[i] > 1) {
             std::cout << "Krig weight " << w.weights[i] << std::endl;
         }
-        sum += w.weights[i];
         v += w.weights[i]*table.at(w.index[i]);
-    }
-    if (sum < 0.1 or sum > 1.5) {
-        std::cout << "sum is " << sum << std::endl;
     }
     return v;
 }
@@ -340,6 +355,8 @@ void PlotProbabilities(std::string name, std::vector<double> table,
                        std::vector<FLOAT_T> zenith,
                        std::vector<FLOAT_T> params) {
     std::cout << "    Plot " << name << std::endl;
+    gStyle->SetCanvasDefH(1000);
+    gStyle->SetCanvasDefW(1400);
 
     std::ostringstream title;
     title << "Oscillation probability for " << flux << " to " << inter;
@@ -396,8 +413,8 @@ void PlotProbabilities(std::string name, std::vector<double> table,
     std::cout << "Krig oscillogram" << std::endl;
     TH2D krigEnergyCosZ("krigEnergyCosZ",
                         "Krigged Oscillation Probability",
-                        krigging[0].steps, krigging[0].eMin, krigging[0].eMax,
-                        krigging[0].steps, krigging[0].zMin, krigging[0].zMax);
+                        krigging[0].stepE, krigging[0].eMin, krigging[0].eMax,
+                        krigging[0].stepZ, krigging[0].zMin, krigging[0].zMax);
     {
         int ezPlot = 0;
         for (TableEntry::KrigWeight& w : krigging) {
@@ -405,7 +422,7 @@ void PlotProbabilities(std::string name, std::vector<double> table,
             if (p < 0 or p > 1.0) {
                 std::cout << "out of bounds " << p << " " << p-1.0 << std::endl;
             }
-            krigEnergyCosZ.SetBinContent(w.ie, w.iz, p);
+            krigEnergyCosZ.SetBinContent(w.ie+1, w.iz+1, p);
         }
     }
     krigEnergyCosZ.Draw("colz");
@@ -447,45 +464,112 @@ void PlotProbabilities(std::string name, std::vector<double> table,
         output.Close();
     }
 
-    TGraph zenithPlot;
-    zenithPlot.SetTitle(title.str().c_str());
-    zenithPlot.GetYaxis()->SetTitle("Probability at 100 MeV");
-    zenithPlot.GetXaxis()->SetTitle("Path Length (km)");
-    for (int i = 0; i < zenith.size(); ++i) {
-        double e = energies[i];
-        double z = zenith[i];
-        double l = RoughZenithPath(z);
-        double p = TableLookup(0,i,table,energies,zenith);
-        if (l < 12000) break;
-        zenithPlot.SetPoint(i, l, p);
+    TGraph zenithProbLong;
+    {
+        int ie = 0;
+        std::ostringstream tmp;
+        tmp << "Probability at " << int(1000*energies[ie]) << " MeV";
+        zenithProbLong.SetTitle(title.str().c_str());
+        zenithProbLong.GetYaxis()->SetTitle(tmp.str().c_str());
+        zenithProbLong.GetXaxis()->SetTitle("Zenith direction (cosine)");
+        for (int i = 0; i < zenith.size(); ++i) {
+            double e = energies[ie];
+            double z = zenith[i];
+            if (z > -0.90) break;
+            double l = RoughZenithPath(z);
+            double p = TableLookup(0,i,table,energies,zenith);
+            zenithProbLong.SetPoint(i, z, p);
+        }
     }
-    zenithPlot.Draw("AC*");
+
+    zenithProbLong.Draw("AL*");
     gPad->Update();
     {
         std::ostringstream fName;
-        fName << "ZenithProb-" << flux
+        fName << "ZenithProbLong-" << flux
               << "-" << inter
               << ".png";
         gPad->Print(fName.str().c_str());
     }
 
-    TGraph energyPlot;
-    energyPlot.SetTitle(title.str().c_str());
-    energyPlot.GetYaxis()->SetTitle("Probabilty at cosZ of -1");
-    energyPlot.GetXaxis()->SetTitle("Energy (GeV)");
-    for (int i = 0; i < energies.size(); ++i) {
-        double e = energies[i];
-        double z = zenith[i];
-        double l = RoughZenithPath(z);
-        double p = TableLookup(i,0,table,energies,zenith);
-        if (e > 0.120) break;;
-        energyPlot.SetPoint(i, e, p);
+    TGraph zenithProbShort;
+    {
+        int ie = 0;
+        std::ostringstream tmp;
+        tmp << "Probability at " << int(1000*energies[ie]) << " MeV";
+        zenithProbShort.SetTitle(title.str().c_str());
+        zenithProbShort.GetYaxis()->SetTitle(tmp.str().c_str());
+        zenithProbShort.GetXaxis()->SetTitle("Zenith direction (cosine)");
+        int pnt = 0;
+        for (int i = 0; i < zenith.size(); ++i) {
+            double e = energies[ie];
+            double z = zenith[i];
+            double l = RoughZenithPath(z);
+            if (1000 < l) continue;
+            double p = TableLookup(0,i,table,energies,zenith);
+            zenithProbShort.SetPoint(pnt++, z, p);
+        }
     }
-    energyPlot.Draw("AC*");
+    zenithProbShort.Draw("AL*");
     gPad->Update();
     {
         std::ostringstream fName;
-        fName << "EnergyProb-" << flux
+        fName << "ZenithProbShort-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
+    }
+
+    TGraph energyProbLow;
+    {
+        std::ostringstream tmp;
+        tmp << "Probability at cosZ of " << zenith[0];
+        energyProbLow.SetTitle(title.str().c_str());
+        energyProbLow.GetYaxis()->SetTitle(tmp.str().c_str());
+        energyProbLow.GetXaxis()->SetTitle("Energy (GeV)");
+    }
+    for (int i = 0; i < energies.size(); ++i) {
+        double e = energies[i];
+        double z = zenith[0];
+        double l = RoughZenithPath(z);
+        double p = TableLookup(i,0,table,energies,zenith);
+        energyProbLow.SetPoint(i, e, p);
+        if (e > 0.120) break;
+    }
+    energyProbLow.Draw("AL*");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "EnergyProbLow-" << flux
+              << "-" << inter
+              << ".png";
+        gPad->Print(fName.str().c_str());
+    }
+
+    TGraph energyProbHigh;
+    {
+        std::ostringstream tmp;
+        tmp << "Probability at cosZ of " << zenith[0];
+        energyProbHigh.SetTitle(title.str().c_str());
+        energyProbHigh.GetYaxis()->SetTitle(tmp.str().c_str());
+        energyProbHigh.GetXaxis()->SetTitle("Energy log10(GeV)");
+        int pnt = 0;
+        for (int i = 0; i < energies.size(); ++i) {
+            double e = energies[i];
+            if (e < 1.1) continue;
+            double z = zenith[0];
+            double l = RoughZenithPath(z);
+            double p = TableLookup(i,0,table,energies,zenith);
+            // energyProbHigh.SetPoint(pnt++, e), p);
+            energyProbHigh.SetPoint(pnt++, std::log10(e), p);
+            // energyProbHigh.SetPoint(pnt++, 1/e, p);
+        }
+    }
+    energyProbHigh.Draw("AL*");
+    gPad->Update();
+    {
+        std::ostringstream fName;
+        fName << "EnergyProbHigh-" << flux
               << "-" << inter
               << ".png";
         gPad->Print(fName.str().c_str());
@@ -494,35 +578,35 @@ void PlotProbabilities(std::string name, std::vector<double> table,
 
 int main(int argc, char** argv) {
     std::string enrStep{"inverse"};
-    std::string enr{"100"};
-    std::string enrSmt{"0.1"};
+    std::string enrGrid{"300"};
+    std::string enrSmt{"0.4"};
     std::string enrRes{"0.05"};
-    std::string zen{"100.0"};
-    std::string zenSmt{"200"};
-    std::string zenRes{"0.03"};
+    std::string zenGrid{"300.0"};
+    std::string zenSmt{"800"};
+    std::string zenRes{"0.0"};
     std::string oscer{"cudaprob3"};
 
-    if (argc > 1) enr = argv[1];
-    if (argc > 2) zen = argv[2];
-    if (argc > 3) enrSmt = argv[3];
-    if (argc > 4) zenSmt = argv[4];
-    if (argc > 5) enrRes = argv[3];
-    if (argc > 6) zenRes = argv[4];
+    if (argc > 1) enrGrid = argv[1];
+    if (argc > 2) zenGrid = argv[2];
+    if (argc > 3) enrRes = argv[3];
+    if (argc > 4) zenRes = argv[4];
+    if (argc > 5) enrSmt = argv[5];
+    if (argc > 6) zenSmt = argv[6];
 
-    std::cout << "Generating a " << enr
-              << " x " << zen
+    std::cout << "Generating a " << enrGrid
+              << " x " << zenGrid
               << " " << enrStep << " grid" <<std::endl;
 
 #ifdef TestOscProb
 #warning "Test OscProb"
     if (oscer == "oscprob") {
         std::cout << "Testing OscProb" << std::endl;
-        AddTable("./Configs/GUNDAM_OscProb","muon","muon",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","muon","electron",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","muon","tau",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","electron",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","muon",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","tau",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
     }
 #else
 #warning "Not testing OscProb"
@@ -532,12 +616,12 @@ int main(int argc, char** argv) {
 #warning "Test CUDAProb3"
     if (oscer == "cudaprob3") {
         std::cout << "Testing CUDAProb3" << std::endl;
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enrStep,enr,enrSmt,enrRes,zen,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
     }
 #else
 #warning "Not testing CUDAProb3"
@@ -556,6 +640,8 @@ int main(int argc, char** argv) {
                                   7.53e-5,  // dms21
                                   2.509e-3, // dms32
                                   -1.601};  // dcp
+
+    std::cout << "TABLES INITIALIZED" << std::endl;
 
     // Check the update function.
     std::vector<double> par = pdgPar;
