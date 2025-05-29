@@ -327,10 +327,10 @@ int initializeTable(const char* name, int argc, const char* argv[],
     globals.oscDensity = 2.6; // gm/cc
     globals.oscElectronDensity = 0.5;
     globals.oscEnergyStep = "inverse";
-    globals.oscEnergySmooth = 0.1; // 1/GeV
-    globals.oscEnergyResol = 0.02; // relative
-    globals.oscZenithSmooth = 100.0; // km
-    globals.oscZenithResol = 0.05; // radian
+    globals.oscEnergySmooth = 0.4; // 1/GeV
+    globals.oscEnergyResol = 0.05; // relative
+    globals.oscZenithSmooth = 800.0; // km
+    globals.oscZenithResol = 0.0; // radian
 
     for (int i = 0; i < argc; ++i) {
         LIB_COUT << "Argument: " << argv[i] << std::endl;
@@ -568,10 +568,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
 
     int zSmooth = 0;
     int eSmooth = 0;
-#ifdef SMOOTH_TABLE
-    zSmooth = globals.oscZenithSmooth;
-    eSmooth = globals.oscEnergySmooth;
-#endif
+
     int zenithIndex = 0;
     // The zenith loops are done like this since oscZenith.size() might be
     // zero.
@@ -975,9 +972,15 @@ int weightTable(const char* name, int bins,
             if (iz == 0) upperZenith = 1.0;
             else if (highZ < globals.oscZenith.size() and sigmaZ > zenithDelta) {
                 double binValue = globals.oscZenith[highZ];
+#ifdef ANGLE_SMOOTHING
                 // Smooth over angle since it's the direction that is
                 // uncertain
-                double deltaZ = std::acos(binValue)- std::acos(zenithValue);
+                double deltaZ = std::acos(binValue) - std::acos(zenithValue);
+#else
+                // Smooth over angle since it's the direction that is
+                // uncertain
+                double deltaZ = binValue - zenithValue;
+#endif
                 deltaZ /= sigmaZ;
                 upperZenith = std::exp(-0.5*deltaZ*deltaZ);
             }
