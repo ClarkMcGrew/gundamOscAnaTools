@@ -6,7 +6,7 @@
 # 3.5 minimum a priori. Taking a lower version as min will make recent CMake
 # version complain about the deprecation version older than 3.5.
 # Might require higher version for specific features.
-cmake_minimum_required( VERSION 3.5 FATAL_ERROR )
+cmake_minimum_required( VERSION 3.12 FATAL_ERROR )
 
 # Define the project
 project( GUNDAM-NuOscillator )
@@ -14,7 +14,30 @@ project( GUNDAM-NuOscillator )
 message("System name: ${CMAKE_SYSTEM_NAME}")
 message("System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
-set(UseGPU 1 CACHE STRING "NuOscillator Option -- Use the GPU")
+include( CheckLanguage )
+check_language( CUDA )
+if( CMAKE_CUDA_COMPILER )
+  message( STATUS "CUDA support enabled." )
+  enable_language(CUDA)
+  if( NOT DEFINED CMAKE_CUDA_ARCHITECTURES )
+    # The default is taken from the CUDAARCHS environment
+    # variable.  If it isn't set, then set it to the earliest
+    # non-deprecated architecture.
+    #   2022: architectures before 52 are deprecated.
+    if( ${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.23 )
+      # After cmake 3.23, this can be set to all or all-major
+      set( CMAKE_CUDA_ARCHITECTURES all )
+    else()
+      set( CMAKE_CUDA_ARCHITECTURES 52 )
+    endif()
+  endif()
+  message( STATUS "CUDA compilation architectures: \"${CMAKE_CUDA_ARCHITECTURES}\"")
+  set(UseGPU 1 CACHE STRING "NuOscillator Option -- Use the GPU")
+else( CMAKE_CUDA_COMPILER )
+  message( WARNING "CUDA support is not present." )
+  set(UseGPU 0 CACHE STRING "NuOscillator Option -- Use the GPU")
+endif( CMAKE_CUDA_COMPILER )
+
 set(UseDoubles 1 CACHE STRING "NuOscillator Option -- Use doubles")
 set(UseCUDAProb3 1 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3")
 set(UseCUDAProb3Linear 0 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3Linear")
@@ -35,9 +58,9 @@ FetchContent_MakeAvailable(nuoscillator)
 link_directories(${nuoscillator_BINARY_DIR}/lib)
 include_directories("${nuoscillator_SOURCE_DIR}")
 
-cmessage(STATUS "nuOscillator is populated:     ${nuoscillator_POPULATED}")
-cmessage(STATUS "nuOscillator source directory: ${nuoscillator_SOURCE_DIR}")
-cmessage(STATUS "nuOscillator binary directory: ${nuoscillator_BINARY_DIR}")
+message(STATUS "nuOscillator is populated:     ${nuoscillator_POPULATED}")
+message(STATUS "nuOscillator source directory: ${nuoscillator_SOURCE_DIR}")
+message(STATUS "nuOscillator binary directory: ${nuoscillator_BINARY_DIR}")
 
 # Build a shared library that can be included into GUNDAM
 add_library(TabulatedNuOscillator SHARED TabulatedNuOscillator.cc)
