@@ -65,6 +65,7 @@ message(STATUS "nuOscillator binary directory: ${nuoscillator_BINARY_DIR}")
 # Build a shared library that can be included into GUNDAM
 add_library(TabulatedNuOscillator SHARED TabulatedNuOscillator.cc)
 target_link_libraries(TabulatedNuOscillator PUBLIC NuOscillator::All)
+target_link_libraries(TabulatedNuOscillator PRIVATE ${CMAKE_DL_LIBS})
 install(TARGETS TabulatedNuOscillator DESTINATION lib)
 
 # Add the local configuration files.
