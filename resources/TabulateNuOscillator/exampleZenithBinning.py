@@ -97,7 +97,8 @@ def makeZenith(zBins, minCos = -1.0, maxCos = 1.0, precision=1E-7):
 
 # Start the main script here.
 parser = argparse.ArgumentParser()
-parser.add_argument("file",help="Name of the output file")
+parser.add_argument("--file",help="Name of the output file",
+                    default="./Configs/exampleZenithBinning.root")
 parser.add_argument("-e","--energy-bins",type=int,default=300,
                     help="Number of energy bins")
 parser.add_argument("-m","--min-energy",type=float,default=0.1,

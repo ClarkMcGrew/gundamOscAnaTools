@@ -52,7 +52,8 @@ def makeInverseEnergy(eBins,eMin,eMax,eRes):
     return energies
 
 parser = argparse.ArgumentParser()
-parser.add_argument("file",help="Name of the output file")
+parser.add_argument("--file",help="Name of the output file",
+                    default="./Configs/exampleEnergyBinning.root")
 parser.add_argument("-e","--energy-bins",type=int,default=1000,
                     help="Number of energy bins")
 parser.add_argument("-m","--min-energy",type=float,default=0.1,
