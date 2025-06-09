@@ -30,6 +30,8 @@
 #include <OscProbCalcer/OscProbCalcer_CUDAProb3.h>
 #endif
 
+class TH1;
+
 namespace TabulatedNuOscillator {
     struct OscillationParameters {
         int ss12;
@@ -80,6 +82,10 @@ namespace TabulatedNuOscillator {
         std::string name;           // The table name
         std::vector<std::string> arguments; // initialization arguments
         std::string nuOscillatorConfig;     // The configuration file to use.
+        std::string oscBinningFile;         // Name of the file with the binning histogram
+        std::string oscBinningHistName;     // Name of the binning histogram
+        std::string oscEnergyType;     // Type of binning (edge, average, log, inverse)
+        std::string oscZenithType;     // Type of binning (edge, average)
         double oscMinEnergy;       // Minimum neutrino energy (GeV)
         double oscMaxEnergy;       // Maximum neutrino energy (GeV)
         double oscMaxLoverE;       // Osc table upper limit
@@ -140,11 +146,21 @@ namespace TabulatedNuOscillator {
                          const std::string& type,
                          double eMin, double eMax, double eRes);
 
+    /// Fill a vector with energies for NuOscillator.
+    void FillEnergyArray(std::vector<FLOAT_T>& energies,
+                         const std::string& type,
+                         TH1* energyBins);
+
     /// Calculate the approximate "delta" along the zenith angle axis.  The
     /// table spacing is approximately by path length while the bins are
     /// labeled in cos(zenithAngle).  This is the approximate difference in
     /// path length. This returns the absolute value of the change.
     double zenithBinDelta(double c2, double c1);
+
+    /// Fill a vector with energies for NuOscillator.
+    void FillZenithArray(std::vector<FLOAT_T>& zenith,
+                         const std::string& type,
+                         TH1* zenithBins);
 
     /// Fill a vector with the zenith angle binning.
     void FillZenithArray(std::vector<FLOAT_T>& zenith);

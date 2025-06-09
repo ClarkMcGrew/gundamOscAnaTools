@@ -8,19 +8,19 @@ OscProbCalcerSetup:
   EarthModelFileName: "./Configs/PREM_4layer.dat"
   UseEarthModelSystematics: false
   Layers: 4
-  UseProductionHeightsAveraging: false
+  UseProductionHeightsAveraging: true
   # A file with production height tables (as 3D histograms) is
   #  required when "UseProductionheightsAveraging" is true.  The height
   #  file needs to match the energy and zenith angle binning being used
   #  in the oscillation table.
-  ProductionHeightsFileName: ./Configs/ProdHeightDist_GUNDAM__hbin2.5.root
+  ProductionHeightsFileName: ./Configs/exampleHeightBinning.root
   ProductionHeightsHistFlavourSuffixes:
-    Nue: "nue"
-    Numu: "numu"
-    Nutau: "numu"
-    Nuebar: "nuebar"
-    Numubar: "numubar"
-    Nutaubar: "numubar"
+    Nue: "dummy"
+    Numu: "dummy"
+    Nutau: "dummy"
+    Nuebar: "dummy"
+    Numubar: "dummy"
+    Nutaubar: "dummy"
   OscChannelMapping:
     - Entry: "Electron:Electron"
     - Entry: "Electron:Muon"

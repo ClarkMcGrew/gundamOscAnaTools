@@ -11,6 +11,10 @@
 #include <tuple>
 #include <cmath>
 
+#include <TFile.h>
+#include <TH1.h>
+#include <TAxis.h>
+
 #include "TabulatedNuOscillator.hh"
 
 // Add a "local" logging facility
@@ -86,9 +90,42 @@ void TabulatedNuOscillator::FillLogarithmicEnergyArray(
     } while (bin < energies.size());
 }
 
+void TabulatedNuOscillator::FillEnergyArray(std::vector<FLOAT_T>& energies,
+                                            const std::string& type,
+                                            TH1* energyBins) {
+    TAxis* bins = energyBins->GetXaxis();
+    LIB_COUT << "Fill energies from " << energyBins->GetName()
+             << " bin " << type
+             << " with " << bins->GetNbins()
+             << " bins"
+             << std::endl;
+    energies.clear();
+    for (int i=1; i<=bins->GetNbins(); ++i) {
+        double lower = bins->GetBinLowEdge(i);
+        double upper = bins->GetBinUpEdge(i);
+        double val = lower;
+        if (type.find("edge") != std::string::npos) val = lower;
+        else if (type.find("ave") != std::string::npos) {
+            val = 0.5*(upper+lower);
+        }
+        else if (type.find("log") != std::string::npos) {
+            val = std::exp(0.5*(std::log(upper)+std::log(lower)));
+        }
+        else if (type.find("inv") != std::string::npos) {
+            val = (upper-lower)/(std::log(upper)-std::log(lower));
+        }
+        else {
+            LIB_COUT << "Invalid energy histogram type"
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        energies.emplace_back(val);
+    }
+}
+
 void TabulatedNuOscillator::FillEnergyArray(
-    std::vector<FLOAT_T>& energies, const std::string& type,
-    double eMin, double eMax, double eRes) {
+    std::vector<FLOAT_T>& energies,
+    const std::string& type, double eMin, double eMax, double eRes) {
     if (type.find("inv") != std::string::npos) {
         FillInverseEnergyArray(energies,eMin,eMax,0.10);
         // FillInverseEnergyArray(energies,eMin,eMax,0.05);
@@ -115,6 +152,37 @@ void TabulatedNuOscillator::FillEnergyArray(
     }
 #endif
 
+}
+
+void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith,
+                                            const std::string& type,
+                                            TH1* zenithBins) {
+    zenith.clear();
+    TAxis* bins = zenithBins->GetYaxis();
+    if (bins->GetNbins() < 2) {
+        LIB_COUT << "No zenith angle bins" << std::endl;
+        return;
+    }
+    LIB_COUT << "Fill zenith from " << zenithBins->GetName()
+             << " use bin " << type
+             << " with " << bins->GetNbins()
+             << " bins"
+             << std::endl;
+    for (int i=1; i<=bins->GetNbins(); ++i) {
+        double lower = bins->GetBinLowEdge(i);
+        double upper = bins->GetBinUpEdge(i);
+        double val = lower;
+        if (type.find("edge") != std::string::npos) val = lower;
+        else if (type.find("ave") != std::string::npos) {
+            val = 0.5*(upper+lower);
+        }
+        else {
+            LIB_COUT << "Invalid zenith histogram type"
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        zenith.emplace_back(val);
+    }
 }
 
 void TabulatedNuOscillator::FillZenithArray(std::vector<FLOAT_T>& zenith) {
@@ -296,20 +364,26 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 // FLUX_FLAVOR [anti-]{electron,muon,tau}
 // INTERACTION_FLAVOR [anti-]{electron,muon,tau}
 // PARAMETERS <list of SS12, SS23, SS13, DM21, DM32, DCP>
-// ENERGY_BINS <integer> -- Number of energy bins for each neutrino type
-// MIN_ENERGY <double> -- Minimum neutrino energy in GeV
-// MAX_ENERGY <double> -- Maximum neutrino energy in GeV
-// ENERGY_STEP {inverse,logarithmic} -- The energy binning to use (def: inverse)
 // ENERGY_SMOOTH <double> -- The 1/E (1/GeV) smoothing (dev 0.1, limits bins considered).
 // ENERGY_RESOLUTION <double> -- Fractional energy resolution to smooth over (def: 0.02)
-// ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
 // ZENITH_SMOOTH <integer> -- The pathlength (km) smoothing (def: 100, limits bins considered).
 // ZENITH_RESOLUTION <double> -- Angle (radian) to smooth over at horizon (def: 0.05).
 // DENSITY <double>    -- Density in gm/cc
 // ELECTRON_DENSITY <double> -- Almost always 0.5
 // PATH <double>       -- Path length in kilometers (for LBL)
-// PRODUCTION_HEIGHT <double>  -- Neutrino production height in km (for ATM)
+// PRODUCTION_HEIGHT <double>  -- Neutrino production height in km (for ATM) when production height is fixed.
+// BINNING_FILE <filename> -- file name containing binning histograms
+// BINNING_HIST <name> -- name of TH1, TH2, or TH3 defining energy [angle and height].
+// ENERGY_TYPE <name> -- type of energy binning (edge, average, logarithmic, inverse)
+// ZENITH_TYPE <name> -- type of zenith binning (edge, average)
 //
+// DEPRECATED AND REMOVED
+// deprecate ENERGY_BINS <integer> -- Number of energy bins for each neutrino type
+// deprecate MIN_ENERGY <double> -- Minimum neutrino energy in GeV
+// deprecate MAX_ENERGY <double> -- Maximum neutrino energy in GeV
+// deprecate ENERGY_STEP {inverse,logarithmic} -- The energy binning to use (def: inverse)
+// deprecate ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
+
 extern "C"
 int initializeTable(const char* name, int argc, const char* argv[],
                     int suggestedBins) {
@@ -319,6 +393,10 @@ int initializeTable(const char* name, int argc, const char* argv[],
 
     // Set default values.
     globals.name = name;
+    globals.oscBinningFile = "";
+    globals.oscBinningHistName = "";
+    globals.oscEnergyType = "average";
+    globals.oscZenithType = "average";
     globals.oscEnergyBins = 1000;
     globals.oscZenithBins = 0;
     globals.oscPath = 1300.0; // km
@@ -401,38 +479,6 @@ int initializeTable(const char* name, int argc, const char* argv[],
         break;
     }
 
-    // Get the number of oscillation bins per neutrino
-    for (std::string arg: globals.arguments) {
-        if (arg.find("ENERGY_BINS") != 0) continue;
-        std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscEnergyBins;
-        break;
-    }
-
-    // Get the minimum energy for neutrinos
-    for (std::string arg: globals.arguments) {
-        if (arg.find("MIN_ENERGY") != 0) continue;
-        std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscMinEnergy;
-        break;
-    }
-
-    // Get the maximum energy for neutrinos
-    for (std::string arg: globals.arguments) {
-        if (arg.find("MAX_ENERGY") != 0) continue;
-        std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscMaxEnergy;
-        break;
-    }
-
-    // Get the type of step for the energies
-    for (std::string arg: globals.arguments) {
-        if (arg.find("ENERGY_STEP") != 0) continue;
-        std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscEnergyStep;
-        break;
-    }
-
 
     // Get the number of bins to smooth across for energies.
     for (std::string arg: globals.arguments) {
@@ -447,14 +493,6 @@ int initializeTable(const char* name, int argc, const char* argv[],
         if (arg.find("ENERGY_RESOLUTION") != 0) continue;
         std::istringstream tmp(arg);
         tmp >> arg >> globals.oscEnergyResol;
-        break;
-    }
-
-    // Get the number of oscillation bins per neutrino
-    for (std::string arg: globals.arguments) {
-        if (arg.find("ZENITH_BINS") != 0) continue;
-        std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscZenithBins;
         break;
     }
 
@@ -510,11 +548,102 @@ int initializeTable(const char* name, int argc, const char* argv[],
         break;
     }
 
+    for (std::string arg: globals.arguments) {
+        if (arg.find("BINNING_FILE") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscBinningFile;
+        break;
+    }
+
+    for (std::string arg: globals.arguments) {
+        if (arg.find("BINNING_HIST") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscBinningHistName;
+        break;
+    }
+
+    // DEPRECATED: Get the number of oscillation bins per neutrino
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ENERGY_BINS") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscEnergyBins;
+        break;
+    }
+
+    // DEPRECATED: Get the minimum energy for neutrinos
+    for (std::string arg: globals.arguments) {
+        if (arg.find("MIN_ENERGY") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscMinEnergy;
+        break;
+    }
+
+    // DEPRECATED: Get the maximum energy for neutrinos
+    for (std::string arg: globals.arguments) {
+        if (arg.find("MAX_ENERGY") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscMaxEnergy;
+        break;
+    }
+
+    // DEPRECATED: Get the type of step for the energies
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ENERGY_STEP") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscEnergyStep;
+        break;
+    }
+
+    // DEPRECATED: Get the number of oscillation bins per neutrino
+    for (std::string arg: globals.arguments) {
+        if (arg.find("ZENITH_BINS") != 0) continue;
+        std::istringstream tmp(arg);
+        tmp >> arg >> globals.oscZenithBins;
+        break;
+    }
+
     // It's brutal, but stop if the user forgot to configure the oscillator.
     if (globals.nuOscillatorConfig.empty()) {
         LIB_COUT << "The NuOscillator config file must be provided"
                  << std::endl;
         LIB_CERR << "The NuOscillator config file must be provided"
+                 << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // It's brutal, but stop if the user forgot to provide file with a binning
+    // histogram
+    if (globals.oscBinningFile.empty()) {
+        LIB_COUT << "A root file with a binning histogram must be provide"
+                 << std::endl;
+        LIB_COUT << "BINNING_FILE must be provided"
+                 << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    // It's brutal, but stop if the user forgot to provide a histogram name
+    // for the binning histogram.
+    if (globals.oscBinningHistName.empty()) {
+        LIB_COUT << "Name of the binning histogram must be provided"
+                 << std::endl;
+        LIB_COUT << "BINNING_HIST must be provided"
+                 << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    std::unique_ptr<TFile> binningFile(
+        TFile::Open(globals.oscBinningFile.c_str(),"OLD"));
+    if (binningFile == nullptr or not binningFile->IsOpen()) {
+        LIB_COUT << "Could not open ROOT binning file"
+                 << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+
+    TH1* binningHist = dynamic_cast<TH1*>(
+        binningFile->Get(globals.oscBinningHistName.c_str()));
+    if (binningHist == nullptr) {
+        LIB_COUT << "Binning file " << binningFile->GetName()
+                 << " does not contain " << globals.oscBinningHistName
                  << std::endl;
         std::exit(EXIT_FAILURE);
     }
@@ -538,6 +667,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
         globals.oscMaxEnergy = globals.oscPath/minLoverE;
     }
 
+#ifdef BOGUS
     TabulatedNuOscillator::FillEnergyArray(globals.oscEnergies,
                                            globals.oscEnergyStep,
                                            globals.oscMinEnergy,
@@ -545,6 +675,15 @@ int initializeTable(const char* name, int argc, const char* argv[],
                                            globals.oscEnergyResol);
 
     TabulatedNuOscillator::FillZenithArray(globals.oscZenith);
+#else
+    TabulatedNuOscillator::FillEnergyArray(globals.oscEnergies,
+                                           globals.oscEnergyType,
+                                           binningHist);
+    TabulatedNuOscillator::FillZenithArray(globals.oscZenith,
+                                           globals.oscZenithType,
+                                           binningHist);
+#endif
+
 
 #ifdef DEBUG_ENERGY_BINNING
     // Print the energy binning
