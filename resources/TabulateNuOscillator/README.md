@@ -35,7 +35,7 @@ numu-to-nue, and numubar-to-numubar.
 
 ```yaml
   fitterEngineConfig:
-  
+
     propagatorConfig:
 
       parameterSetListConfig
@@ -97,9 +97,8 @@ numu-to-nue, and numubar-to-numubar.
                 - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
                 - "FLUX_FLAVOR muon"          # muon neutrino flux
                 - "INTERACTION_FLAVOR muon"   # muon neutrino
-                - "ENERGY_BINS 1000"
-                - "MIN_ENERGY 0.05"
-                - "MAX_ENERGY 30.0"
+                - "BINNING_FILE exampleEnergyBinning.root"
+                - "BINNING_HIST energyBinning"
                 - "PATH 1300.0"
                 - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
               updateFunction: "updateTable"
@@ -125,9 +124,8 @@ numu-to-nue, and numubar-to-numubar.
                 - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
                 - "FLUX_FLAVOR anti-muon"          # muon neutrino flux
                 - "INTERACTION_FLAVOR anti-muon"   # muon neutrino
-                - "ENERGY_BINS 1000"
-                - "MIN_ENERGY 0.05"
-                - "MAX_ENERGY 30.0"
+                - "BINNING_FILE exampleEnergyBinning.root"
+                - "BINNING_HIST energyBinning"
                 - "PATH 1300.0"
                 - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
               updateFunction: "updateTable"
@@ -153,9 +151,8 @@ numu-to-nue, and numubar-to-numubar.
                 - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
                 - "FLUX_FLAVOR muon"              # muon neutrino
                 - "INTERACTION_FLAVOR electron"   # electron neutrino
-                - "ENERGY_BINS 1000"
-                - "MIN_ENERGY 0.05"
-                - "MAX_ENERGY 30.0"
+                - "BINNING_FILE exampleEnergyBinning.root"
+                - "BINNING_HIST energyBinning"
                 - "PATH 1300.0"
                 - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
               updateFunction: "updateTable"

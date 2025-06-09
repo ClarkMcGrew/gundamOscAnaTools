@@ -86,12 +86,6 @@ namespace TabulatedNuOscillator {
         std::string oscBinningHistName;     // Name of the binning histogram
         std::string oscEnergyType;     // Type of binning (edge, average, log, inverse)
         std::string oscZenithType;     // Type of binning (edge, average)
-        double oscMinEnergy;       // Minimum neutrino energy (GeV)
-        double oscMaxEnergy;       // Maximum neutrino energy (GeV)
-        double oscMaxLoverE;       // Osc table upper limit
-        std::string oscEnergyStep; // The type of step (inverse or logarithmic)
-        int oscEnergyBins;         // Number of energy bins per neutrino type.
-        int oscZenithBins;         // Number of angle bins per neutrino type.
         double oscEnergySmooth;       // Smoothing 1/E
         double oscZenithSmooth;       // Smoothing L
         double oscEnergyResol;        // Smoothing (fraction energy resolution)

@@ -397,14 +397,10 @@ int initializeTable(const char* name, int argc, const char* argv[],
     globals.oscBinningHistName = "";
     globals.oscEnergyType = "average";
     globals.oscZenithType = "average";
-    globals.oscEnergyBins = 1000;
-    globals.oscZenithBins = 0;
     globals.oscPath = 1300.0; // km
     globals.oscProdHeight = 17.0; // km
-    globals.oscMinEnergy = 0.050; // GeV
     globals.oscDensity = 2.6; // gm/cc
     globals.oscElectronDensity = 0.5;
-    globals.oscEnergyStep = "inverse";
     globals.oscEnergySmooth = 0.4; // 1/GeV
     globals.oscEnergyResol = 0.05; // relative
     globals.oscZenithSmooth = 800.0; // km
@@ -566,7 +562,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
     for (std::string arg: globals.arguments) {
         if (arg.find("ENERGY_BINS") != 0) continue;
         std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscEnergyBins;
+        LIB_COUT << "USING DEPRECATED ENERGY_BINS" << std::endl;
         break;
     }
 
@@ -574,7 +570,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
     for (std::string arg: globals.arguments) {
         if (arg.find("MIN_ENERGY") != 0) continue;
         std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscMinEnergy;
+        LIB_COUT << "USING DEPRECATED MIN_ENERGY" << std::endl;
         break;
     }
 
@@ -582,7 +578,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
     for (std::string arg: globals.arguments) {
         if (arg.find("MAX_ENERGY") != 0) continue;
         std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscMaxEnergy;
+        LIB_COUT << "USING DEPRECATED MAX_ENERGY" << std::endl;
         break;
     }
 
@@ -590,7 +586,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
     for (std::string arg: globals.arguments) {
         if (arg.find("ENERGY_STEP") != 0) continue;
         std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscEnergyStep;
+        LIB_COUT << "USING DEPRECATED ENERGY_STEP" << std::endl;
         break;
     }
 
@@ -598,7 +594,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
     for (std::string arg: globals.arguments) {
         if (arg.find("ZENITH_BINS") != 0) continue;
         std::istringstream tmp(arg);
-        tmp >> arg >> globals.oscZenithBins;
+        LIB_COUT << "USING DEPRECATED ZENITH_BINS" << std::endl;
         break;
     }
 
@@ -648,42 +644,12 @@ int initializeTable(const char* name, int argc, const char* argv[],
         std::exit(EXIT_FAILURE);
     }
 
-    // Set the upper limit for the L over E.
-    globals.oscMaxLoverE = globals.oscPath/globals.oscMinEnergy;
-
-    if (globals.oscEnergyBins < 2) {
-        LIB_COUT << "The NuOscillator must have at least two energy bins"
-                 << std::endl;
-        LIB_CERR << "The NuOscillator must have at least two energy bins"
-                 << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-    globals.oscEnergies.resize(globals.oscEnergyBins);
-    globals.oscZenith.resize(globals.oscZenithBins);
-
-    // Make sure the upper energy limit is sane.
-    if (globals.oscMaxEnergy < globals.oscMinEnergy) {
-        double minLoverE = globals.oscMaxLoverE/globals.oscEnergies.size();
-        globals.oscMaxEnergy = globals.oscPath/minLoverE;
-    }
-
-#ifdef BOGUS
-    TabulatedNuOscillator::FillEnergyArray(globals.oscEnergies,
-                                           globals.oscEnergyStep,
-                                           globals.oscMinEnergy,
-                                           globals.oscMaxEnergy,
-                                           globals.oscEnergyResol);
-
-    TabulatedNuOscillator::FillZenithArray(globals.oscZenith);
-#else
     TabulatedNuOscillator::FillEnergyArray(globals.oscEnergies,
                                            globals.oscEnergyType,
                                            binningHist);
     TabulatedNuOscillator::FillZenithArray(globals.oscZenith,
                                            globals.oscZenithType,
                                            binningHist);
-#endif
-
 
 #ifdef DEBUG_ENERGY_BINNING
     // Print the energy binning
