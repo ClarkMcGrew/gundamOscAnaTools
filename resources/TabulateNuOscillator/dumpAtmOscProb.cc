@@ -85,11 +85,10 @@ std::vector<TableEntry> gOscTables;
 void AddTable(std::string config,
               std::string flux,
               std::string interaction,
-              std::string energyStep,
-              std::string energyBins,
+              std::string binFile,
+              std::string binName,
               std::string energySmooth,
               std::string energyResol,
-              std::string zenithBins,
               std::string zenithSmooth,
               std::string zenithResol) {
     gOscTables.emplace_back();
@@ -128,17 +127,12 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("FLUX_FLAVOR "+tableEntry.flux);
     initFunc_arguments.push_back("INTERACTION_FLAVOR "+tableEntry.interaction);
     initFunc_arguments.push_back("PARAMETERS SS12,SS23,SS13,DM21,DM32,DCP");
-    initFunc_arguments.push_back("ENERGY_BINS "+energyBins);
-    initFunc_arguments.push_back("ENERGY_STEP "+energyStep);
-    initFunc_arguments.push_back("MIN_ENERGY 0.10");
-    initFunc_arguments.push_back("MAX_ENERGY 100.0");
-    if (not zenithBins.empty()) {
-        initFunc_arguments.push_back("ZENITH_BINS "+zenithBins);
-        initFunc_arguments.push_back("ZENITH_SMOOTH "+zenithSmooth);
-        initFunc_arguments.push_back("ZENITH_RESOLUTION "+zenithResol);
-        initFunc_arguments.push_back("ENERGY_SMOOTH "+energySmooth);
-        initFunc_arguments.push_back("ENERGY_RESOLUTION "+energyResol);
-    }
+    initFunc_arguments.push_back("BINNING_FILE "+binFile);
+    initFunc_arguments.push_back("BINNING_HIST "+binName);
+    initFunc_arguments.push_back("ZENITH_SMOOTH "+zenithSmooth);
+    initFunc_arguments.push_back("ZENITH_RESOLUTION "+zenithResol);
+    initFunc_arguments.push_back("ENERGY_SMOOTH "+energySmooth);
+    initFunc_arguments.push_back("ENERGY_RESOLUTION "+energyResol);
     initFunc_arguments.push_back("DENSITY 2.6");
     initFunc_arguments.push_back("PATH 1300.0");
     initFunc_arguments.push_back("CONFIG "+tableEntry.config);
@@ -419,8 +413,11 @@ void PlotProbabilities(std::string name, std::vector<double> table,
         int ezPlot = 0;
         for (TableEntry::KrigWeight& w : krigging) {
             double p = Krig(table,w);
-            if (p < 0 or p > 1.0) {
-                std::cout << "out of bounds " << p << " " << p-1.0 << std::endl;
+            if (p < 0 or (p-1.0) > 1.0E-7) {
+                std::cout << "Probability out of accuracy bounds "
+                          << p
+                          << " " << p-1.0
+                          << std::endl;
             }
             krigEnergyCosZ.SetBinContent(w.ie+1, w.iz+1, p);
         }
@@ -577,36 +574,39 @@ void PlotProbabilities(std::string name, std::vector<double> table,
 }
 
 int main(int argc, char** argv) {
-    std::string enrStep{"inverse"};
-    std::string enrGrid{"300"};
     std::string enrSmt{"0.4"};
     std::string enrRes{"0.05"};
-    std::string zenGrid{"300.0"};
     std::string zenSmt{"800"};
     std::string zenRes{"0.0"};
     std::string oscer{"cudaprob3"};
 
-    if (argc > 1) enrGrid = argv[1];
-    if (argc > 2) zenGrid = argv[2];
-    if (argc > 3) enrRes = argv[3];
-    if (argc > 4) zenRes = argv[4];
-    if (argc > 5) enrSmt = argv[5];
-    if (argc > 6) zenSmt = argv[6];
-
-    std::cout << "Generating a " << enrGrid
-              << " x " << zenGrid
-              << " " << enrStep << " grid" <<std::endl;
+    if (argc > 1) enrRes = argv[3];
+    if (argc > 2) zenRes = argv[4];
+    if (argc > 3) enrSmt = argv[5];
+    if (argc > 4) zenSmt = argv[6];
 
 #ifdef TestOscProb
 #warning "Test OscProb"
     if (oscer == "oscprob") {
         std::cout << "Testing OscProb" << std::endl;
-        AddTable("./Configs/GUNDAM_OscProb","muon","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","muon","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","muon","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_OscProb","electron","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","muon","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_OscProb","electron","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
     }
 #else
 #warning "Not testing OscProb"
@@ -616,22 +616,28 @@ int main(int argc, char** argv) {
 #warning "Test CUDAProb3"
     if (oscer == "cudaprob3") {
         std::cout << "Testing CUDAProb3" << std::endl;
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
-        // AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enrStep,enrGrid,enrSmt,enrRes,zenGrid,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
     }
 #else
 #warning "Not testing CUDAProb3"
 #endif
-
-    std::random_device random_seed;
-    std::default_random_engine engine{random_seed()};
-    std::uniform_real_distribution<double> uniform{0.0,1.0};
-    std::normal_distribution<double> normal{0.0,1.0};
-    std::lognormal_distribution<double> lognormal{0.0, 0.75};
 
     // The PDG values for oscillation parameters
     std::vector<double> pdgPar = {3.07e-1,  // ss12
@@ -641,10 +647,21 @@ int main(int argc, char** argv) {
                                   2.509e-3, // dms32
                                   -1.601};  // dcp
 
+    std::vector<double> nullOsc = {0.0,  // ss12
+                                   0.0,  // ss23
+                                   0.0,  // ss13
+                                   0.0,  // dms21
+                                   0.0, // dms32
+                                   0.0};  // dcp
+
     std::cout << "TABLES INITIALIZED" << std::endl;
 
     // Check the update function.
+#ifdef DEBUG_NULL_OSCILLATIONS
+    std::vector<double> par = nullOsc;
+#else
     std::vector<double> par = pdgPar;
+#endif
     for (TableEntry& t : gOscTables) {
         std::cout << "Test " << t.name
                   << " update " << t.table.size()

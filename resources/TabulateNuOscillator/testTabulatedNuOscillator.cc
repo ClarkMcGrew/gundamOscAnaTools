@@ -37,7 +37,8 @@ std::vector<TableEntry> gOscTables;
 void AddTable(std::string config,
               std::string flux,
               std::string interaction,
-              std::string energyBins, std::string zenithBins) {
+              std::string binFile,
+              std::string binName) {
     gOscTables.emplace_back();
     std::cout << "Add table " << gOscTables.size() << std::endl;
 
@@ -74,15 +75,8 @@ void AddTable(std::string config,
     initFunc_arguments.push_back("FLUX_FLAVOR "+tableEntry.flux);
     initFunc_arguments.push_back("INTERACTION_FLAVOR "+tableEntry.interaction);
     initFunc_arguments.push_back("PARAMETERS SS12,SS23,SS13,DM21,DM32,DCP");
-    initFunc_arguments.push_back("ENERGY_BINS "+energyBins);
-    initFunc_arguments.push_back("ENERGY_STEP inverse");
-    initFunc_arguments.push_back("MIN_ENERGY 0.50");
-    initFunc_arguments.push_back("MAX_ENERGY 100.0");
-    if (not zenithBins.empty()) {
-        initFunc_arguments.push_back("ZENITH_BINS "+zenithBins);
-        initFunc_arguments.push_back("ZENITH_SMOOTH 0");
-        initFunc_arguments.push_back("ENERGY_SMOOTH 0");
-    }
+    initFunc_arguments.push_back("BINNING_FILE "+binFile);
+    initFunc_arguments.push_back("BINNING_HIST "+binName);
     initFunc_arguments.push_back("DENSITY 2.6");
     initFunc_arguments.push_back("PATH 1300.0");
     initFunc_arguments.push_back("CONFIG "+tableEntry.config);
@@ -160,12 +154,18 @@ int main(int argc, char** argv) {
     {
         std::string enr{"1000"};
         std::string zen{""};
-        AddTable("./Configs/GUNDAM_NuFASTLinear","muon","muon",enr,zen);
-        AddTable("./Configs/GUNDAM_NuFASTLinear","muon","electron",enr,zen);
-        AddTable("./Configs/GUNDAM_NuFASTLinear","electron","muon",enr,zen);
-        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-muon",enr,zen);
-        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-electron",enr,zen);
-        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-electron","anti-muon",enr,zen);
+        AddTable("./Configs/GUNDAM_NuFASTLinear","muon","muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_NuFASTLinear","muon","electron",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_NuFASTLinear","electron","muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-muon","anti-electron",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_NuFASTLinear","anti-electron","anti-muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
     }
 #else
 #warning "Not testing NUFAST"
@@ -175,33 +175,62 @@ int main(int argc, char** argv) {
 #ifdef TestOscProb
 #warning "Test OscProb"
     {
-        std::string enr{"200"};
-        std::string zen{"40"};
-        AddTable("./Configs/GUNDAM_OscProb","muon","muon",enr,zen);
-        AddTable("./Configs/GUNDAM_OscProb","muon","electron",enr,zen);
-        AddTable("./Configs/GUNDAM_OscProb","muon","tau",enr,zen);
-        AddTable("./Configs/GUNDAM_OscProb","electron","electron",enr,zen);
-        AddTable("./Configs/GUNDAM_OscProb","electron","muon",enr,zen);
-        AddTable("./Configs/GUNDAM_OscProb","electron","tau",enr,zen);
+        AddTable("./Configs/GUNDAM_OscProb","muon","muon",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_OscProb","muon","electron",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_OscProb","muon","tau",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_OscProb","electron","electron",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_OscProb","electron","muon",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_OscProb","electron","tau",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
     }
 #else
 #warning "Not testing OscProb"
 #endif
 
-#ifdef TestCUDAProb3
-#warning "Test CUDAProb3"
+#ifdef TestCUDAProb3Fixed
+#warning "Test CUDAProb3 fixed"
     {
-        std::string enr{"400"};
-        std::string zen{"400"};
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",enr,zen);
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",enr,zen);
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",enr,zen);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",enr,zen);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",enr,zen);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",enr,zen);
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","muon",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","electron",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","tau",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","electron",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","muon",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","tau",
+                 "./Configs/exampleZenithBinning.root","zenithBinning");
     }
 #else
-#warning "Not testing CUDAProb3"
+#warning "Not testing CUDAProb3 fixed"
+#endif
+
+#define TestCUDAProb3Height
+#ifdef TestCUDAProb3Height
+#warning "Test CUDAProb3 height"
+    {
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+    }
+#else
+#warning "Not testing CUDAProb3 height"
 #endif
 
     std::random_device random_seed;

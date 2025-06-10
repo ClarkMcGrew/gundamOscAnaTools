@@ -8,7 +8,7 @@ Compiling this code on linux, you have to have a valid ROOT in your path which i
 ./compile.sh
 ```
 
-This does a little more error checking, but is essentially the same as
+You can also compile by hand using:
 
 ```bash
 mkdir build-$(uname -m)
@@ -18,8 +18,8 @@ make install
 ```
 
 That will grab the NuOscillator code, build it, and then build the
-libTabulatedNuOscillator.so file that can be included in GUNDAM.  This is
-not currently supported on MacOS, but probably could be made to work.
+libTabulatedNuOscillator.so file that can be included in GUNDAM.  This
+probably doesn't work on MacOS, but probably could be made to work.
 
 > Note: Do to NuOscillator idiosyncracies, this needs to be installed into
 > it's build directory.
@@ -35,7 +35,7 @@ numu-to-nue, and numubar-to-numubar.
 
 ```yaml
   fitterEngineConfig:
-  
+
     propagatorConfig:
 
       parameterSetListConfig
@@ -97,9 +97,8 @@ numu-to-nue, and numubar-to-numubar.
                 - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
                 - "FLUX_FLAVOR muon"          # muon neutrino flux
                 - "INTERACTION_FLAVOR muon"   # muon neutrino
-                - "ENERGY_BINS 1000"
-                - "MIN_ENERGY 0.05"
-                - "MAX_ENERGY 30.0"
+                - "BINNING_FILE exampleEnergyBinning.root"
+                - "BINNING_HIST energyBinning"
                 - "PATH 1300.0"
                 - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
               updateFunction: "updateTable"
@@ -125,9 +124,8 @@ numu-to-nue, and numubar-to-numubar.
                 - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
                 - "FLUX_FLAVOR anti-muon"          # muon neutrino flux
                 - "INTERACTION_FLAVOR anti-muon"   # muon neutrino
-                - "ENERGY_BINS 1000"
-                - "MIN_ENERGY 0.05"
-                - "MAX_ENERGY 30.0"
+                - "BINNING_FILE exampleEnergyBinning.root"
+                - "BINNING_HIST energyBinning"
                 - "PATH 1300.0"
                 - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
               updateFunction: "updateTable"
@@ -153,9 +151,8 @@ numu-to-nue, and numubar-to-numubar.
                 - "CONFIG ${NUOSCILLATOR}/Configs/Unbinned_NuFASTLinear.yaml"
                 - "FLUX_FLAVOR muon"              # muon neutrino
                 - "INTERACTION_FLAVOR electron"   # electron neutrino
-                - "ENERGY_BINS 1000"
-                - "MIN_ENERGY 0.05"
-                - "MAX_ENERGY 30.0"
+                - "BINNING_FILE exampleEnergyBinning.root"
+                - "BINNING_HIST energyBinning"
                 - "PATH 1300.0"
                 - "PARAMETERS SS12,SS13,SS23,DM21,DM32,DCP"
               updateFunction: "updateTable"
@@ -184,11 +181,15 @@ The flux types are the same as the neutrino type.  When the flux type
 matches the neutrino type, a survival probability is used.  When the flux
 type does not match the neutrino type, an appearance probability is used.
 
-The parameter definitions are contained in a comma separated list that defines the order of the oscillation parameters being provided by GUNDAM.
+The parameter definitions are contained in a comma separated list that
+defines the order of the oscillation parameters being provided by GUNDAM.
 
 ## The parameter definitions
 
-The parameter definitions are contained in a text file that specifies how the GUNDAM config file has defined the parameters.  This is the order of the parameters in the input array of doubles.  The oscillation parameters are defined using the strings
+The parameter definitions are contained in a text file that specifies how
+the GUNDAM config file has defined the parameters.  This is the order of
+the parameters in the input array of doubles.  The oscillation parameters
+are defined using the strings
 
 * SS12    -- Sin-Squared theta 12.
 * SS13    -- Sin-Squared theta 13.
@@ -198,5 +199,16 @@ The parameter definitions are contained in a text file that specifies how the GU
 * DCP     -- delta CP.
 
 These values will be mapped into the enum values used by NuOscillator
-(i.e. kTH12, kTH12, kTH23, kDM12, kDM23, and kDCP [NuOscillator reverses
-the indices on the mass-squared]).
+(i.e. kTH12, kTH12, kTH23, kDM12, kDM23, and kDCP [Note: NuOscillator
+reverses the indices on kDM23, so it is Delta M-squared 3 minus Delta
+M-squared 2]).
+
+## Oscillation weight grid
+
+The oscillation weights will be calculated at values of neutrino energy and zenith angle (for atmospheric neutrino oscillations) that are provided using a histogram.  The histogram will be accessed as a TH1, TH2, or TH3 where the X-axis specifies the energy values to calculate, the Y-axis (if present) specifies the zenith cosine, and the Z-axis (if present) specifies the production height values [note: Most oscillators require that the production heights be uniformly spaced]. Example histograms can be constructed using the `exampleEnergyBinning.py`, `exampleZenithBinning.py`, and `exampleHeightBinning.py` scripts.  The grid is provided to the library using the `BINNING_FILE` and `BINNING_HIST` strings that are passed to the function specified by `initFunction`.
+
+The grid values are accessed using the TAxis interface.  The values are either the low edge of the bin, the linear center of the bin `(H+L)/2`, the logarithmic center of the bin `exp((log(H)+log(L))/2)`, or the "inverse" center of the bin `(H-L)/(log(H)-log(L))` [this is the average `x` weighted by `1/x`, which is appropriate for "1/E" binning]. The NuOscillator binned oscillators use the linear center.  The way the grid is calculated from the histogram is set using `ENERGY_TYPE` (can be "edge", "average", "logarithmic", or "inverse"), and `ZENITH_TYPE` (can be "edge", or "average").
+
+The contents of the TH1 and TH2 histograms used to specify the energy and zenith cosine distributions will be ignored.
+
+When a TH3 is used to specify the production height distribution, the histogram contents will be the probability at each production height. In this case, the histogram will need to be normalized based on the needs of the oscillator (typically, that means the sum of each column must be normalized).  See `exampleHeightBinning.py` for a simple, non-physical, example that can be used with CUDAProb3.

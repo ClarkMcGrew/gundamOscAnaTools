@@ -30,7 +30,13 @@
 #include <OscProbCalcer/OscProbCalcer_CUDAProb3.h>
 #endif
 
+class TH1;
+
 namespace TabulatedNuOscillator {
+    /// The index of the oscillation parameter in the parameter array from
+    /// GUNDAM.  The order is controlled by the "PARAMETERS <list>" string
+    /// argument in the initializeTable call.  The values are copied into the
+    /// correct NuOscillator parameter locations.
     struct OscillationParameters {
         int ss12;
         int ss13;
@@ -41,11 +47,12 @@ namespace TabulatedNuOscillator {
     };
 
     /// The payload for a map between the NuOscillator config file used and
-    /// values that are used with that config file.  Notice that this will
+    /// values that are used with that config file.  This describes the
+    /// configuration of the NuOscillator library.  Notice that this will
     /// often contain copies of the values in the global config (which is
     /// indexed by the "Tabular" dial name), but they mean different things.
-    /// Several tabular dials can share the same NuOscillatorConfig, but not
-    /// all dials need to.
+    /// Several dials can share the same NuOscillatorConfig, but not all dials
+    /// need to.
     struct NuOscillatorConfig {
         std::string name;      // The configuration file to use.
         OscillationParameters oscParIndex;
@@ -71,8 +78,8 @@ namespace TabulatedNuOscillator {
     extern "C" ConfigLookup configLookup;
 
     // The values associated with a particular tabulated dial.  Notice that
-    // this can contain values "shared" with the NuOscillatorConfig, but they
-    // mean different things.  Multiple tabulated dials can share the same
+    // this will contain values "shared" with the NuOscillatorConfig, but they
+    // mean different things.  Multiple dials can share the same
     // NuOscillatorConfig, but they do not have to.  Notably, the values here,
     // and in the associated NuOscillatorConfig must match, and there are
     // checks to make sure they do.
@@ -80,16 +87,20 @@ namespace TabulatedNuOscillator {
         std::string name;           // The table name
         std::vector<std::string> arguments; // initialization arguments
         std::string nuOscillatorConfig;     // The configuration file to use.
-        double oscMinEnergy;       // Minimum neutrino energy (GeV)
-        double oscMaxEnergy;       // Maximum neutrino energy (GeV)
-        double oscMaxLoverE;       // Osc table upper limit
-        std::string oscEnergyStep; // The type of step (inverse or logarithmic)
-        int oscEnergyBins;         // Number of energy bins per neutrino type.
-        int oscZenithBins;         // Number of angle bins per neutrino type.
-        double oscEnergySmooth;       // Smoothing 1/E
-        double oscZenithSmooth;       // Smoothing L
-        double oscEnergyResol;        // Smoothing (fraction energy resolution)
-        double oscZenithResol;        // Smoothing (radians)
+        std::string oscBinningFile;         // Name of the binning file
+        std::string oscBinningHistName;     // Name of the binning histogram
+        std::string oscEnergyType; // The binning (edge, average, log, inverse)
+        std::string oscZenithType; // The binning (edge, average)
+
+        // Provide a window in 1/E and path length that is used for smoothing.
+        // The actual smoothing is provided by the resolution fields.
+        double oscEnergySmooth;    // Smoothing 1/E (1/GeV)
+        double oscZenithSmooth;    // Smoothing L (km)
+
+        // Provide the resolution that will be appled to the energy
+        // (fractional), and the angular resolution.
+        double oscEnergyResol;     // Fractional energy resolution
+        double oscZenithResol;     // Angular resolution (radians or cosine)
         OscillationParameters oscParIndex;
         // NuOscillator interface values:
         //    -- FLOAT_T is defined in OscillatorConstants.h (no namespace).
@@ -140,11 +151,21 @@ namespace TabulatedNuOscillator {
                          const std::string& type,
                          double eMin, double eMax, double eRes);
 
+    /// Fill a vector with energies for NuOscillator.
+    void FillEnergyArray(std::vector<FLOAT_T>& energies,
+                         const std::string& type,
+                         TH1* energyBins);
+
     /// Calculate the approximate "delta" along the zenith angle axis.  The
     /// table spacing is approximately by path length while the bins are
     /// labeled in cos(zenithAngle).  This is the approximate difference in
     /// path length. This returns the absolute value of the change.
     double zenithBinDelta(double c2, double c1);
+
+    /// Fill a vector with energies for NuOscillator.
+    void FillZenithArray(std::vector<FLOAT_T>& zenith,
+                         const std::string& type,
+                         TH1* zenithBins);
 
     /// Fill a vector with the zenith angle binning.
     void FillZenithArray(std::vector<FLOAT_T>& zenith);
