@@ -175,8 +175,6 @@ int main(int argc, char** argv) {
 #ifdef TestOscProb
 #warning "Test OscProb"
     {
-        std::string enr{"200"};
-        std::string zen{"40"};
         AddTable("./Configs/GUNDAM_OscProb","muon","muon",
                  "./Configs/exampleZenithBinning.root","zenithBinning");
         AddTable("./Configs/GUNDAM_OscProb","muon","electron",
@@ -194,26 +192,45 @@ int main(int argc, char** argv) {
 #warning "Not testing OscProb"
 #endif
 
-#ifdef TestCUDAProb3
-#warning "Test CUDAProb3"
+#ifdef TestCUDAProb3Fixed
+#warning "Test CUDAProb3 fixed"
     {
-        std::string enr{"400"};
-        std::string zen{"400"};
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","muon",
                  "./Configs/exampleZenithBinning.root","zenithBinning");
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","electron",
                  "./Configs/exampleZenithBinning.root","zenithBinning");
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","tau",
                  "./Configs/exampleZenithBinning.root","zenithBinning");
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","electron",
                  "./Configs/exampleZenithBinning.root","zenithBinning");
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","muon",
                  "./Configs/exampleZenithBinning.root","zenithBinning");
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","tau",
                  "./Configs/exampleZenithBinning.root","zenithBinning");
     }
 #else
-#warning "Not testing CUDAProb3"
+#warning "Not testing CUDAProb3 fixed"
+#endif
+
+#define TestCUDAProb3Height
+#ifdef TestCUDAProb3Height
+#warning "Test CUDAProb3 height"
+    {
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy");
+    }
+#else
+#warning "Not testing CUDAProb3 height"
 #endif
 
     std::random_device random_seed;
