@@ -143,7 +143,7 @@ void TabulatedNuOscillator::FillEnergyArray(
     energies[0] = eMin;
     energies[energies.size()-1] = eMax;
 
-#ifdef DUMP_ENERGY
+#ifdef DEBUG_DUMP_ENERGY
     for (int i = 0; i < energies.size(); ++i) {
         std::cout << "E " << i
                   << " " << energies[i]
@@ -357,7 +357,7 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
     LIB_COUT << "Configured: " << newConfig.name << std::endl;
 }
 
-// Provide the initializetable entry point required by the GUNDAM tabulated
+// Provide the initializeTable entry point required by the GUNDAM tabulated
 // dials.  This requires string arguments:
 //
 // CONFIG <file-name>
@@ -378,11 +378,11 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 // ZENITH_TYPE <name> -- type of zenith binning (edge, average)
 //
 // DEPRECATED AND REMOVED
-// deprecate ENERGY_BINS <integer> -- Number of energy bins for each neutrino type
-// deprecate MIN_ENERGY <double> -- Minimum neutrino energy in GeV
-// deprecate MAX_ENERGY <double> -- Maximum neutrino energy in GeV
-// deprecate ENERGY_STEP {inverse,logarithmic} -- The energy binning to use (def: inverse)
-// deprecate ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
+// deprecated ENERGY_BINS <integer> -- Number of energy bins for each neutrino type
+// deprecated MIN_ENERGY <double> -- Minimum neutrino energy in GeV
+// deprecated MAX_ENERGY <double> -- Maximum neutrino energy in GeV
+// deprecated ENERGY_STEP {inverse,logarithmic} -- The energy binning to use (def: inverse)
+// deprecated ZENITH_BINS <integer>  -- Number of zenith cosine bins (def: 0)
 
 extern "C"
 int initializeTable(const char* name, int argc, const char* argv[],
@@ -814,7 +814,7 @@ int weightTable(const char* name, int bins,
     if (0 < zenithIndex) {
         if (zenithValue < globals.oscZenith[zenithIndex-1]
             or globals.oscZenith[zenithIndex] < zenithValue) {
-#ifdef DUMP_Z_PROBLEM
+#ifdef DEBUG_DUMP_Z_PROBLEM
             std::cout << "ZenithIndex " << zenithIndex
                       << " " << globals.oscZenith[zenithIndex-1]
                       << " " << zenithValue
@@ -839,7 +839,7 @@ int weightTable(const char* name, int bins,
     if (0<energyIndex) {
         if (energyValue < globals.oscEnergies[energyIndex-1]
             or globals.oscEnergies[energyIndex] < energyValue) {
-#ifdef DUMP_E_PROBLEM
+#ifdef DEBUG_DUMP_E_PROBLEM
             std::cout << "EnergyIndex " << energyIndex
                       << " " << globals.oscEnergies[energyIndex-1]
                       << " " << energyValue
@@ -1365,10 +1365,21 @@ int updateTable(const char* name,
                 double table[], int bins,
                 const double par[], int npar) {
 
+    // This should use "find" in case the user asks for an undefined table,
+    // but this is fairly internal, so live dangerously
+    TabulatedNuOscillator::TableGlobals& globals
+        = TabulatedNuOscillator::globalLookup[name];
+    std::string configName = globals.nuOscillatorConfig;
+    TabulatedNuOscillator::NuOscillatorConfig& config
+        = TabulatedNuOscillator::configLookup[configName];
+
 #ifdef DEBUG_UPDATE_TABLE
     LIB_COUT << "Fill table " << name
              << " @ " << (void*) table
-             << " bins: " << bins << std::endl;
+             << " bins: " << bins
+             << " initial flavor: " << globals.oscInitialFlavor
+             << " final flavor: " << globals.oscFinalFlavor
+             << std::endl;
 
     LIB_COUT << "    PAR --";
     for (int i = 0; i<npar; ++i) {
@@ -1386,13 +1397,16 @@ int updateTable(const char* name,
         std::exit(EXIT_FAILURE);
     }
 
-    TabulatedNuOscillator::TableGlobals& globals
-        = TabulatedNuOscillator::globalLookup[name];
-    std::string configName = globals.nuOscillatorConfig;
-    TabulatedNuOscillator::NuOscillatorConfig& config
-        = TabulatedNuOscillator::configLookup[configName];
+    // Flag that the oscillation weights should be calculated.  This is mostly
+    // used to catch cases where all of the angles are zero (which is not
+    // handled well by most oscillators).  When it is false, then the survival
+    // probabilities are all 1, and the appearance probabilities are all zero.
+    bool applyOscillations = true;
 
+    // Flag that the parameters were found and filled.  This is to catch
+    // incorrect configurations.
     bool oscParamsFilled = false;
+
     ////////////////////////////////////////////////////////////////////////
     // NuOscillator reverses the convention on the label index order for
     // delta-mass-squared.  NuOscillator kDM23 is (m3^2 - m2^2) which is the
@@ -1530,6 +1544,13 @@ int updateTable(const char* name,
     }
 #endif
 
+    // Check that there are oscillations.
+    if (std::abs(par[config.oscParIndex.ss12]) < 1E-4
+        and std::abs(par[config.oscParIndex.ss13]) < 1E-4
+        and std::abs(par[config.oscParIndex.ss23]) < 1E-4) {
+        applyOscillations = false;
+    }
+
     if (not oscParamsFilled) {
         LIB_COUT << "Incorrect oscillation configuration" << std::endl;
         LIB_CERR << "Incorrect oscillation configuration" << std::endl;
@@ -1537,9 +1558,11 @@ int updateTable(const char* name,
     }
 
     try {
-        // See if the table needs to be recalculated.  The oscillator is
-        // clever and will only recalculate if the parameters have changed.
-        config.oscillator->CalculateProbabilities(config.oscParams);
+        if (applyOscillations) {
+            // See if the table needs to be recalculated.  The oscillator is
+            // clever and only recalculates if the parameters have changed.
+            config.oscillator->CalculateProbabilities(config.oscParams);
+        }
     } catch (...) {
         LIB_CERR << "Invalid probability or other throw from NuOscillator"
                  << std::endl;
@@ -1557,8 +1580,12 @@ int updateTable(const char* name,
     for (TabulatedNuOscillator::TableGlobals::OscWeight &weight
              : globals.weightAddress) {
         const std::size_t i = weight.index;
-        const double v = *weight.address;
+        double v = *weight.address;
         const double w = weight.weight;
+        if (not applyOscillations) {
+            if (globals.oscInitialFlavor==globals.oscFinalFlavor) v = 1.0;
+            else v = 0.0;
+        }
 #ifdef ERROR_CHECKING
         if (i < 0 or bins <= i or w < 0.0 or w > 1.0) {
             LIB_CERR << "Error filling " << name << std::endl;
@@ -1583,7 +1610,7 @@ int updateTable(const char* name,
         table[i] += w*v;
     }
 
-#ifdef DEBUG_UPDATE_TABLE
+#ifdef DEBUG_DUMP_TABLE
     std::cout << "Table: " << name << std::endl;
     for (int i=0; i<bins; ++i) {
         std::cout << "  bin" << i
