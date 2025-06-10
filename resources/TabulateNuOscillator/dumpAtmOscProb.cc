@@ -413,8 +413,11 @@ void PlotProbabilities(std::string name, std::vector<double> table,
         int ezPlot = 0;
         for (TableEntry::KrigWeight& w : krigging) {
             double p = Krig(table,w);
-            if (p < 0 or p > 1.0) {
-                std::cout << "out of bounds " << p << " " << p-1.0 << std::endl;
+            if (p < 0 or (p-1.0) > 1.0E-7) {
+                std::cout << "Probability out of accuracy bounds "
+                          << p
+                          << " " << p-1.0
+                          << std::endl;
             }
             krigEnergyCosZ.SetBinContent(w.ie+1, w.iz+1, p);
         }
@@ -636,12 +639,6 @@ int main(int argc, char** argv) {
 #warning "Not testing CUDAProb3"
 #endif
 
-    std::random_device random_seed;
-    std::default_random_engine engine{random_seed()};
-    std::uniform_real_distribution<double> uniform{0.0,1.0};
-    std::normal_distribution<double> normal{0.0,1.0};
-    std::lognormal_distribution<double> lognormal{0.0, 0.75};
-
     // The PDG values for oscillation parameters
     std::vector<double> pdgPar = {3.07e-1,  // ss12
                                   5.28e-1,  // ss23
@@ -650,10 +647,21 @@ int main(int argc, char** argv) {
                                   2.509e-3, // dms32
                                   -1.601};  // dcp
 
+    std::vector<double> nullOsc = {0.0,  // ss12
+                                   0.0,  // ss23
+                                   0.0,  // ss13
+                                   0.0,  // dms21
+                                   0.0, // dms32
+                                   0.0};  // dcp
+
     std::cout << "TABLES INITIALIZED" << std::endl;
 
     // Check the update function.
+#ifdef DEBUG_NULL_OSCILLATIONS
+    std::vector<double> par = nullOsc;
+#else
     std::vector<double> par = pdgPar;
+#endif
     for (TableEntry& t : gOscTables) {
         std::cout << "Test " << t.name
                   << " update " << t.table.size()
