@@ -116,8 +116,6 @@ parser.add_argument("--zenith-step",type=float,default=0.05,
 
 args = parser.parse_args()
 
-output = ROOT.TFile(args.file,"recreate")
-
 energies = makeEnergies(eBins = args.energy_bins,
                         eMin = args.min_energy,
                         eMax = args.max_energy,
@@ -125,6 +123,8 @@ energies = makeEnergies(eBins = args.energy_bins,
                         eStep = args.energy_step)
 
 zenith = makeZenith(zBins = args.zenith_bins)
+
+output = ROOT.TFile(args.file,"recreate")
 
 hist = ROOT.TH2D("zenithBinning","Zenith versus Energy bins",
                  len(energies)-1,numpy.array(energies),

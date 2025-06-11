@@ -580,10 +580,10 @@ int main(int argc, char** argv) {
     std::string zenRes{"0.0"};
     std::string oscer{"cudaprob3"};
 
-    if (argc > 1) enrRes = argv[3];
-    if (argc > 2) zenRes = argv[4];
-    if (argc > 3) enrSmt = argv[5];
-    if (argc > 4) zenSmt = argv[6];
+    if (argc > 1) enrRes = argv[1];
+    if (argc > 2) zenRes = argv[2];
+    if (argc > 3) enrSmt = argv[3];
+    if (argc > 4) zenSmt = argv[4];
 
 #ifdef TestOscProb
 #warning "Test OscProb"
@@ -612,31 +612,67 @@ int main(int argc, char** argv) {
 #warning "Not testing OscProb"
 #endif
 
-#ifdef TestCUDAProb3
-#warning "Test CUDAProb3"
+#ifdef TestCUDAProb3Fixed
+#warning "Test CUDAProb3 with Fixed Production Height"
     if (oscer == "cudaprob3") {
-        std::cout << "Testing CUDAProb3" << std::endl;
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","muon",
+        std::cout << "Testing CUDAProb3 with Fixed Production Height"
+                  << std::endl;
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","muon",
                  "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","electron",
+#define ALL_HISTOGRAMS
+#ifdef ALL_HISTOGRAMS
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","electron",
                  "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","muon","tau",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","tau",
                  "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","electron",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","electron",
                  "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","muon",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","muon",
                  "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
-        AddTable("./Configs/GUNDAM_CUDAProb3","electron","tau",
+        AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","tau",
                  "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
+#endif
     }
 #else
 #warning "Not testing CUDAProb3"
+#endif
+
+#define TestCUDAProb3Height
+#ifdef TestCUDAProb3Height
+#warning "Test CUDAProb3 with Production Height"
+    if (oscer == "cudaprob3") {
+        std::cout << "Testing CUDAProb3 with Production Height"
+                  << std::endl;
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+#define ALL_HISTOGRAMS
+#ifdef ALL_HISTOGRAMS
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","muon","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","electron",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","muon",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+        AddTable("./Configs/GUNDAM_CUDAProb3_height","electron","tau",
+                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 enrSmt,enrRes,zenSmt,zenRes);
+#endif
+    }
+#else
+#warning "Not testing CUDAProb3 with production heights"
 #endif
 
     // The PDG values for oscillation parameters
