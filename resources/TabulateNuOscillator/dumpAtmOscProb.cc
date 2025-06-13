@@ -612,30 +612,31 @@ int main(int argc, char** argv) {
 #warning "Not testing OscProb"
 #endif
 
+#define TestCUDAProb3Fixed
 #ifdef TestCUDAProb3Fixed
 #warning "Test CUDAProb3 with Fixed Production Height"
     if (oscer == "cudaprob3") {
         std::cout << "Testing CUDAProb3 with Fixed Production Height"
                   << std::endl;
         AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","muon",
-                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 "./Configs/exampleZenithBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
 #define ALL_HISTOGRAMS
 #ifdef ALL_HISTOGRAMS
         AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","electron",
-                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 "./Configs/exampleZenithBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
         AddTable("./Configs/GUNDAM_CUDAProb3_fixed","muon","tau",
-                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 "./Configs/exampleZenithBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
         AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","electron",
-                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 "./Configs/exampleZenithBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
         AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","muon",
-                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 "./Configs/exampleZenithBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
         AddTable("./Configs/GUNDAM_CUDAProb3_fixed","electron","tau",
-                 "./Configs/exampleHeightBinning.root","ProductionHeight_dummy",
+                 "./Configs/exampleZenithBinning.root","ProductionHeight_dummy",
                  enrSmt,enrRes,zenSmt,zenRes);
 #endif
     }
@@ -643,7 +644,7 @@ int main(int argc, char** argv) {
 #warning "Not testing CUDAProb3"
 #endif
 
-#define TestCUDAProb3Height
+#undef TestCUDAProb3Height
 #ifdef TestCUDAProb3Height
 #warning "Test CUDAProb3 with Production Height"
     if (oscer == "cudaprob3") {
