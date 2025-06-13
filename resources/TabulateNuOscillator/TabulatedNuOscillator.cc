@@ -1281,8 +1281,7 @@ int weightTable(const char* name, int bins,
     std::cout << "reweight "
               << energyValue << " " << zenithValue
               << " with " << iEntry << "/" << entry << " entries"
-              << ", sum " << sum
-              << ", and norm " << norm
+              << ", sum: " << sum
               << std::endl;
 #endif
 
