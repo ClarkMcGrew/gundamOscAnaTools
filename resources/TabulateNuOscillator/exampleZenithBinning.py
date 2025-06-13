@@ -99,7 +99,7 @@ def makeZenith(zBins, minCos = -1.0, maxCos = 1.0, precision=1E-7):
 parser = argparse.ArgumentParser()
 parser.add_argument("--file",help="Name of the output file",
                     default="./Configs/exampleZenithBinning.root")
-parser.add_argument("-e","--energy-bins",type=int,default=300,
+parser.add_argument("-e","--energy-bins",type=int,default=1500,
                     help="Number of energy bins")
 parser.add_argument("-m","--min-energy",type=float,default=0.1,
                     help="Minimum energy (GeV)")
@@ -109,7 +109,7 @@ parser.add_argument("--energy-step",default="inverse",
                     help="Energy step (inverse or logarithmic)")
 parser.add_argument("--energy-resolution",type=float,default=0.1,
                     help="The target limit on ratio between energy steps")
-parser.add_argument("-z","--zenith-bins",type=int,default=300,
+parser.add_argument("-z","--zenith-bins",type=int,default=700,
                     help="Number of bins in zenith angle")
 parser.add_argument("--zenith-step",type=float,default=0.05,
                     help="Maximum step in cosine of the zenith angle")
@@ -126,7 +126,7 @@ zenith = makeZenith(zBins = args.zenith_bins)
 
 output = ROOT.TFile(args.file,"recreate")
 
-hist = ROOT.TH2D("zenithBinning","Zenith versus Energy bins",
+hist = ROOT.TH2D("ProductionHeight_dummy","Zenith versus Energy bins",
                  len(energies)-1,numpy.array(energies),
                  len(zenith)-1,numpy.array(zenith))
 

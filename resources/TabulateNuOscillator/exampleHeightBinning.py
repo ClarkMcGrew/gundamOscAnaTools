@@ -103,16 +103,21 @@ def makeProductionHeight(hBins, hMax):
 
 def fillProductionHeight(hist):
     for eBin in range(1,hist.GetXaxis().GetNbins()+1):
+        if 0 == (eBin % 100):
+            print("Fill energy band:",eBin, "of", hist.GetXaxis().GetNbins())
         for zBin in range(1,hist.GetYaxis().GetNbins()+1):
             for hBin in range(1,hist.GetZaxis().GetNbins()+1):
                 hCenter = hist.GetZaxis().GetBinCenter(hBin)
-                hProb = (hCenter - 25.0)/15
+                hProb = (hCenter - 20.0)/10
                 hProb = math.exp(-0.5*hProb*hProb)
                 hist.SetBinContent(eBin,zBin,hBin,hProb)
 
 
 def normalizeProductionHeight(hist):
     for eBin in range(1,hist.GetXaxis().GetNbins()+1):
+        if 0 == (eBin % 100):
+            print("Normalize energy band:",eBin, "of",
+                  hist.GetXaxis().GetNbins())
         for zBin in range(1,hist.GetYaxis().GetNbins()+1):
             hNorm = 0.0
             for hBin in range(1,hist.GetZaxis().GetNbins()+1):
