@@ -45,7 +45,7 @@ set(UseOscProb 1 CACHE STRING  "NuOscillator Option -- Enable OscProb")
 set(UseProb3ppLinear 1 CACHE STRING  "NuOscillator Option -- Enable Prob3ppLinear")
 set(UseNuFASTLinear 1 CACHE STRING  "NuOscillator Option -- Enable NuFASTLinear")
 set(UseProbGPULinear 1 CACHE STRING  "NuOscillator Option -- Enable ProbGPULinear")
-set(NuOscillatorTag "main" CACHE STRING "NuOscillator tag to build")
+set(NuOscillatorTag "v1.3.1" CACHE STRING "NuOscillator tag to build")
 
 # Get the NuOscillator package and build it.
 include(FetchContent)
