@@ -22,7 +22,9 @@ def makeInverseEnergy(eBins,eMin,eMax,eRes):
     # expected to have about 20 energy bins roughly uniform in log(E), and
     # there should be at least three or four energy steps calculated per bin.
     # This leads to 80 energy grid points.
-    minFraction = math.exp(-(math.log(eMax)-math.log(eMin))/80)
+    minBins = 80
+    if (minBins > eBins/2): minBins = eBins/2
+    minFraction = math.exp(-(math.log(eMax)-math.log(eMin))/minBins)
     # When the total number of energy samples is small, the fraction must
     # be bigger.  The fraction is picked to need slightly fewer limited steps
     # than energy grid points.
@@ -75,7 +77,9 @@ def makeZenith(zBins, minCos = -1.0, maxCos = 1.0, precision=1E-7):
     maxPath = roughPathLength(minCos)
     step = (maxPath-minPath)/zBins
     print("Path length step target",step)
-    maxCosStep = (maxCos - minCos) / 80
+    minBins = 80
+    if (minBins > zBins/2): minBins = zBins/2
+    maxCosStep = (maxCos - minCos) / minBins
     lastPath = minPath
     lastCos = maxCos
     zenith = []
