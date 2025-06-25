@@ -945,6 +945,10 @@ int weightTable(const char* name, int bins,
                     double diff = energyBinDelta(globals.oscEnergies[highE],
                                                  globals.oscEnergies[lowE]);
                     lowerBinEnergy = 1.0 - delta/diff;
+                    if (sigmaE < 0.0) {
+                        if (lowerBinEnergy < 0.5) lowerBinEnergy = 0.0;
+                        else lowerBinEnergy = 1.0;
+                    }
                 }
                 else lowerBinEnergy = 1.0;
             }
@@ -965,6 +969,10 @@ int weightTable(const char* name, int bins,
                     double diff = energyBinDelta(globals.oscEnergies[highE],
                                                  globals.oscEnergies[lowE]);
                     upperBinEnergy = 1.0 - delta/diff;
+                    if (sigmaE < 0.0) {
+                        if (upperBinEnergy <= 0.5) upperBinEnergy = 0.0;
+                        else upperBinEnergy = 1.0;
+                    }
                 }
                 else upperBinEnergy = 1.0;
             }
@@ -1024,6 +1032,10 @@ int weightTable(const char* name, int bins,
                         double diff = zenithBinDelta(globals.oscZenith[highZ],
                                                      globals.oscZenith[lowZ]);
                         lowerBinZenith = 1.0 - delta/diff;
+                        if (sigmaZ < 0.0) {
+                            if (lowerBinZenith < 0.5) lowerBinZenith = 0.0;
+                            else lowerBinZenith = 1.0;
+                        }
                     }
                     else lowerBinZenith = 1.0;
                 }
@@ -1044,6 +1056,10 @@ int weightTable(const char* name, int bins,
                         double diff = zenithBinDelta(globals.oscZenith[highZ],
                                                      globals.oscZenith[lowZ]);
                         upperBinZenith = 1.0 - delta/diff;
+                        if (sigmaZ < 0.0) {
+                            if (upperBinZenith <= 0.5) upperBinZenith = 0.0;
+                            else upperBinZenith = 1.0;
+                        }
                     }
                     else upperBinZenith = 1.0;
                 }
