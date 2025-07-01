@@ -22,7 +22,13 @@ def makeInverseEnergy(eBins,eMin,eMax,eRes):
     # expected to have about 20 energy bins roughly uniform in log(E), and
     # there should be at least three or four energy steps calculated per bin.
     # This leads to 80 energy grid points.
-    minFraction = math.exp(-(math.log(eMax)-math.log(eMin))/80)
+    # ADJUST THIS COMMENT IF THE EXPECTED BINNING CHANGES: The fit is
+    # expected to have about 20 energy bins roughly uniform in log(E), and
+    # there should be at least three or four energy steps calculated per bin.
+    # This leads to 80 energy grid points.
+    minBins = 80
+    if (minBins > eBins/2): minBins = eBins/2
+    minFraction = math.exp(-(math.log(eMax)-math.log(eMin))/minBins)
     # When the total number of energy samples is small, the fraction must
     # be bigger.  The fraction is picked to need slightly fewer limited steps
     # than energy grid points.
@@ -54,7 +60,7 @@ def makeInverseEnergy(eBins,eMin,eMax,eRes):
 parser = argparse.ArgumentParser()
 parser.add_argument("--file",help="Name of the output file",
                     default="./Configs/exampleEnergyBinning.root")
-parser.add_argument("-e","--energy-bins",type=int,default=1000,
+parser.add_argument("-e","--energy-bins",type=int,default=2000,
                     help="Number of energy bins")
 parser.add_argument("-m","--min-energy",type=float,default=0.1,
                     help="Minimum energy (GeV)")
@@ -62,7 +68,7 @@ parser.add_argument("-M","--max-energy",type=float,default=100,
                     help="Maximum energy (GeV)")
 parser.add_argument("--energy-step",default="inverse",
                     help="Energy step (inverse or logarithmic)")
-parser.add_argument("--energy-resolution",type=float,default=0.1,
+parser.add_argument("-E","--energy-resolution",type=float,default=0.1,
                     help="The target limit on ratio between energy steps")
 args = parser.parse_args()
 

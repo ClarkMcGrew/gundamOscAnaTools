@@ -102,3 +102,8 @@ endif(UseOscProb)
 if (UseCUDAProb3)
   target_compile_definitions(dumpAtmOscProb PUBLIC TestCUDAProb3)
 endif(UseCUDAProb3)
+
+# An executable to draw the long baseline probabilities
+add_executable(dumpLblOscProb dumpLblOscProb.cc)
+install(TARGETS dumpLblOscProb DESTINATION bin)
+target_link_libraries(dumpLblOscProb PUBLIC NuOscillator::All)
