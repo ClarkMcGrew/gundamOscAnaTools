@@ -212,7 +212,6 @@ int main(int argc, char** argv) {
 #warning "Not testing CUDAProb3 fixed"
 #endif
 
-#define TestCUDAProb3Height
 #ifdef TestCUDAProb3Height
 #warning "Test CUDAProb3 height"
     {
@@ -321,6 +320,7 @@ int main(int argc, char** argv) {
               << std::setprecision(default_precision)
               << std::setw(0);
 
+#ifdef TEST_NUFAST_NO_OSCILLATIONS
     // Iterate toward no oscillations
     int iter = 0;
     for (double ss23 = 0.60; ss23 > 1e-107; ss23 *= 0.7) {
@@ -345,8 +345,9 @@ int main(int argc, char** argv) {
             break;
         }
     }
+#endif
 
-    int iterations = 10000;
+    int iterations = 1000;
     std::cout << "Time " << iterations << " NuFASTLinear iterations"
               << " (takes several seconds)" << std::endl;
     // Time the calls
@@ -370,6 +371,7 @@ int main(int argc, char** argv) {
               << " " << 1000*elapsed.count()/iterations << " us per iteration"
               << std::endl;
 
+#ifdef TIME_OSCPROB
     iterations = 100;
     std::cout << "Time " << iterations << " OscProb iterations"
               << " (takes several seconds)" << std::endl;
@@ -393,7 +395,9 @@ int main(int argc, char** argv) {
     std::cout << "OscProb Elapsed time: " << elapsed.count() << " ms total"
               << " " << elapsed.count()/iterations << " ms per iteration"
               << std::endl;
+#endif
 
+#ifdef TIME_CUDAPROB3
     iterations = 100;
     std::cout << "Time " << iterations << " CUDAProb3 iterations"
               << " (takes several seconds)" << std::endl;
@@ -417,6 +421,7 @@ int main(int argc, char** argv) {
     std::cout << "CUDAProb3 Elapsed time: " << elapsed.count() << " ms total"
               << " " << elapsed.count()/iterations << " ms per iteration"
               << std::endl;
+#endif
 
     std::exit(EXIT_SUCCESS);
 }
