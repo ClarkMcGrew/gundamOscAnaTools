@@ -35,15 +35,16 @@ class TH1;
 namespace TabulatedNuOscillator {
     /// The index of the oscillation parameter in the parameter array from
     /// GUNDAM.  The order is controlled by the "PARAMETERS <list>" string
-    /// argument in the initializeTable call.  The values are copied into the
-    /// correct NuOscillator parameter locations.
+    /// argument in the initializeTable call.  The indices are used to copy
+    /// the GUNDAM value into the correct NuOscillator parameter locations.
     struct OscillationParameters {
-        int ss12;
-        int ss13;
-        int ss23;
-        int dm21;
-        int dm32;
-        int dcp;
+        int ss12{-1};
+        int ss13{-1};
+        int ss23{-1};
+        int dm21{-1};
+        int dm32{-1};
+        int dcp{-1};
+        int sign32{-1};
     };
 
     /// The payload for a map between the NuOscillator config file used and
