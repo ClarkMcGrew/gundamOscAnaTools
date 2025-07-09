@@ -363,7 +363,7 @@ void TabulatedNuOscillator::ConfigureNuOscillator(const TableGlobals& globals) {
 // CONFIG <file-name>
 // FLUX_FLAVOR [anti-]{electron,muon,tau}
 // INTERACTION_FLAVOR [anti-]{electron,muon,tau}
-// PARAMETERS <list of SS12, SS23, SS13, DM21, DM32, DCP>
+// PARAMETERS <list of SS12, SS23, SS13, DM21, DM32, DCP, SIGN32>
 // ENERGY_SMOOTH <double> -- The 1/E (1/GeV) smoothing (dev 0.1, limits bins considered).
 // ENERGY_RESOLUTION <double> -- Fractional energy resolution to smooth over (def: 0.02)
 // ZENITH_SMOOTH <integer> -- The pathlength (km) smoothing (def: 100, limits bins considered).
@@ -467,6 +467,7 @@ int initializeTable(const char* name, int argc, const char* argv[],
             else if (param == "DM21") {globals.oscParIndex.dm21 = index++;}
             else if (param == "DM32") {globals.oscParIndex.dm32 = index++;}
             else if (param == "DCP")  {globals.oscParIndex.dcp = index++;}
+            else if (param == "SIGN32")  {globals.oscParIndex.sign32 = index++;}
             else {
                 LIB_CERR << "Unknown name parameter: " << param << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -1388,6 +1389,7 @@ int updateTable(const char* name,
     TabulatedNuOscillator::NuOscillatorConfig& config
         = TabulatedNuOscillator::configLookup[configName];
 
+#define DEBUG_UPDATE_TABLE
 #ifdef DEBUG_UPDATE_TABLE
     LIB_COUT << "Fill table " << name
              << " @ " << (void*) table
@@ -1457,6 +1459,10 @@ int updateTable(const char* name,
         config.oscParams[Calcer::kPATHL] = config.oscPath;
         config.oscParams[Calcer::kDENS] = config.oscDensity;
         config.oscParams[Calcer::kELECDENS] = config.oscElectronDensity;
+        if (0 <= config.oscParIndex.sign32
+            and par[config.oscParIndex.sign32] < 0) {
+            config.oscParams[Calcer::kDM23] = - config.oscParams[Calcer::kDM23];
+        }
 #ifdef DEBUG_NUFAST_PARAMS
         LIB_COUT << "kTH12 " << config.oscParams[Calcer::kTH12] << std::endl;
         LIB_COUT << "kTH23 " << config.oscParams[Calcer::kTH23] << std::endl;
@@ -1495,6 +1501,10 @@ int updateTable(const char* name,
         config.oscParams[Calcer::kDCP] = par[config.oscParIndex.dcp];
         config.oscParams[Calcer::kPATHL] = config.oscPath;
         config.oscParams[Calcer::kDENS] = config.oscDensity;
+        if (0 <= config.oscParIndex.sign32
+            and par[config.oscParIndex.sign32] < 0) {
+            config.oscParams[Calcer::kDM23] = - config.oscParams[Calcer::kDM23];
+        }
     }
 #endif
 #ifdef UseOscProb
@@ -1530,6 +1540,10 @@ int updateTable(const char* name,
         config.oscParams[Calcer::kDM12] = par[config.oscParIndex.dm21];
         config.oscParams[Calcer::kDM23] = par[config.oscParIndex.dm32];
         config.oscParams[Calcer::kDCP] = par[config.oscParIndex.dcp];
+        if (0 <= config.oscParIndex.sign32
+            and par[config.oscParIndex.sign32] < 0) {
+            config.oscParams[Calcer::kDM23] = - config.oscParams[Calcer::kDM23];
+        }
     }
 #endif
 #ifdef UseCUDAProb3
@@ -1556,6 +1570,10 @@ int updateTable(const char* name,
         config.oscParams[4] = par[config.oscParIndex.dm32];
         config.oscParams[5] = par[config.oscParIndex.dcp];
         config.oscParams[6] = config.oscProdHeight;
+        if (0 <= config.oscParIndex.sign32
+            and par[config.oscParIndex.sign32] < 0) {
+            config.oscParams[4] = - config.oscParams[4];
+        }
     }
 #endif
 
