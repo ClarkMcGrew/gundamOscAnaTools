@@ -126,7 +126,7 @@ void AddTable(std::string config,
     std::vector<std::string> initFunc_arguments;
     initFunc_arguments.push_back("FLUX_FLAVOR "+tableEntry.flux);
     initFunc_arguments.push_back("INTERACTION_FLAVOR "+tableEntry.interaction);
-    initFunc_arguments.push_back("PARAMETERS SS12,SS23,SS13,DM21,DM32,DCP");
+    initFunc_arguments.push_back("PARAMETERS SS12,SS23,SS13,DM21,DM32,DCP,SIGN32");
     initFunc_arguments.push_back("BINNING_FILE "+binFile);
     initFunc_arguments.push_back("BINNING_HIST "+binName);
     initFunc_arguments.push_back("ZENITH_SMOOTH "+zenithSmooth);
@@ -682,14 +682,35 @@ int main(int argc, char** argv) {
                                   2.18e-2,  // ss13
                                   7.53e-5,  // dms21
                                   2.509e-3, // dms32
-                                  -1.601};  // dcp
+                                  -1.601,   // dcp
+    };
+
+    std::vector<double> pdgParNO = {3.07e-1,  // ss12
+                                    5.28e-1,  // ss23
+                                    2.18e-2,  // ss13
+                                    7.53e-5,  // dms21
+                                    2.509e-3, // dms32
+                                    -1.601,   // dcp
+                                    1.0       // sign32
+    };
+
+    std::vector<double> pdgParIH = {3.07e-1,  // ss12
+                                    5.28e-1,  // ss23
+                                    2.18e-2,  // ss13
+                                    7.53e-5,  // dms21
+                                    2.509e-3, // dms32
+                                    -1.601,   // dcp
+                                    -1.0       // sign32
+    };
 
     std::vector<double> nullOsc = {0.0,  // ss12
                                    0.0,  // ss23
                                    0.0,  // ss13
                                    0.0,  // dms21
-                                   0.0, // dms32
-                                   0.0};  // dcp
+                                   0.0,  // dms32
+                                   0.0,  // dcp
+                                   0.0   // sign32
+    };
 
     std::cout << "TABLES INITIALIZED" << std::endl;
 
@@ -697,7 +718,7 @@ int main(int argc, char** argv) {
 #ifdef DEBUG_NULL_OSCILLATIONS
     std::vector<double> par = nullOsc;
 #else
-    std::vector<double> par = pdgPar;
+    std::vector<double> par = pdgParIH;
 #endif
     for (TableEntry& t : gOscTables) {
         std::cout << "Test " << t.name
