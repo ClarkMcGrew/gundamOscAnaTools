@@ -197,6 +197,7 @@ are defined using the strings
 * DM21    -- delta M^2 21.
 * DM32    -- delta M^2 32.
 * DCP     -- delta CP.
+* SIGN32  -- sign of delta M^2 32 (positive for greater than or equal to zero)
 
 These values will be mapped into the enum values used by NuOscillator
 (i.e. kTH12, kTH12, kTH23, kDM12, kDM23, and kDCP [Note: NuOscillator
