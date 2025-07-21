@@ -1389,7 +1389,6 @@ int updateTable(const char* name,
     TabulatedNuOscillator::NuOscillatorConfig& config
         = TabulatedNuOscillator::configLookup[configName];
 
-#define DEBUG_UPDATE_TABLE
 #ifdef DEBUG_UPDATE_TABLE
     LIB_COUT << "Fill table " << name
              << " @ " << (void*) table
