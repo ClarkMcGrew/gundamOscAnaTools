@@ -41,10 +41,11 @@ endif( CMAKE_CUDA_COMPILER )
 set(UseDoubles 1 CACHE STRING "NuOscillator Option -- Use doubles")
 set(UseCUDAProb3 1 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3")
 set(UseCUDAProb3Linear 0 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3Linear")
-set(UseOscProb 1 CACHE STRING  "NuOscillator Option -- Enable OscProb")
-set(UseProb3ppLinear 1 CACHE STRING  "NuOscillator Option -- Enable Prob3ppLinear")
-set(UseNuFASTLinear 1 CACHE STRING  "NuOscillator Option -- Enable NuFASTLinear")
+# set(UseProb3ppLinear 1 Cache String "NuOscillator Option -- Enable Prob3ppLinear")
 set(UseProbGPULinear 1 CACHE STRING  "NuOscillator Option -- Enable ProbGPULinear")
+set(UseNuFASTLinear 1 CACHE STRING  "NuOscillator Option -- Enable NuFASTLinear")
+set(UseOscProb 1 CACHE STRING  "NuOscillator Option -- Enable OscProb")
+
 set(NuOscillatorTag "v1.3.1" CACHE STRING "NuOscillator tag to build")
 
 # Get the NuOscillator package and build it.
