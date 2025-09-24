@@ -130,7 +130,7 @@ zenith = makeZenith(zBins = args.zenith_bins)
 
 output = ROOT.TFile(args.file,"recreate")
 
-hist = ROOT.TH2D("ProductionHeight_dummy","Zenith versus Energy bins",
+hist = ROOT.TH2D("zenithBinning","Zenith versus Energy bins",
                  len(energies)-1,numpy.array(energies),
                  len(zenith)-1,numpy.array(zenith))
 

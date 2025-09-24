@@ -1475,6 +1475,50 @@ int updateTable(const char* name,
 #endif
     }
 #endif
+#ifdef UseProbGPULinear
+    if (config.oscillator->ReturnImplementationName()
+        .find("Unbinned_ProbGPULinear") != std::string::npos) {
+        oscParamsFilled = true;
+        // This one only works for LBL neutrino oscillations
+        using Calcer = OscProbCalcerProbGPULinear;
+        if (Calcer::kNOscParams != config.oscillator->ReturnNOscParams()) {
+            LIB_COUT << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << Calcer::kNOscParams
+                     << std::endl;
+            LIB_CERR << "Wrong number of parameters.  Provided: "
+                     << config.oscillator->ReturnNOscParams()
+                     << " Needed: " << Calcer::kNOscParams
+                     << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+        config.oscParams[Calcer::kTH12]
+            = std::max(par[config.oscParIndex.ss12],1E-12);
+        config.oscParams[Calcer::kTH13]
+            = std::max(par[config.oscParIndex.ss13],1E-12);
+        config.oscParams[Calcer::kTH23]
+            = std::max(par[config.oscParIndex.ss23],1E-12);
+        // NuOscillator reverses the index order on delta-mass-squared
+        config.oscParams[Calcer::kDM12] = par[config.oscParIndex.dm21];
+        config.oscParams[Calcer::kDM23] = par[config.oscParIndex.dm32];
+        config.oscParams[Calcer::kDCP] = par[config.oscParIndex.dcp];
+        config.oscParams[Calcer::kPATHL] = config.oscPath;
+        config.oscParams[Calcer::kDENS] = config.oscDensity;
+        if (0 <= config.oscParIndex.sign32
+            and par[config.oscParIndex.sign32] < 0) {
+            config.oscParams[Calcer::kDM23] = - config.oscParams[Calcer::kDM23];
+        }
+#ifdef DEBUG_PROBGPU_PARAMS
+        LIB_COUT << "kTH12 " << config.oscParams[Calcer::kTH12] << std::endl;
+        LIB_COUT << "kTH23 " << config.oscParams[Calcer::kTH23] << std::endl;
+        LIB_COUT << "kTH13 " << config.oscParams[Calcer::kTH13] << std::endl;
+        LIB_COUT << "kDM12 " << config.oscParams[Calcer::kDM12] << std::endl;
+        LIB_COUT << "kDM23 " << config.oscParams[Calcer::kDM23] << std::endl;
+        LIB_COUT << "kPATHL " << config.oscParams[Calcer::kPATHL] << std::endl;
+        LIB_COUT << "kDENS " << config.oscParams[Calcer::kDENS] << std::endl;
+#endif
+    }
+#endif
 #ifdef UseProb3ppLinear
     if (config.oscillator->ReturnImplementationName()
         .find("Unbinned_Prob3ppLinear") != std::string::npos) {

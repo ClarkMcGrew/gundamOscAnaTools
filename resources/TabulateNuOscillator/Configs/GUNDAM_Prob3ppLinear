@@ -4,8 +4,7 @@ General:
   CalculationType: "Unbinned"
 
 OscProbCalcerSetup:
-  ImplementationName: "NuFASTLinear"
-  nNewtonIter: 5
+  ImplementationName: "Prob3ppLinear"
   OscChannelMapping:
     - Entry: "Electron:Electron"
     - Entry: "Electron:Muon"

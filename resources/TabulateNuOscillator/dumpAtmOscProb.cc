@@ -612,7 +612,6 @@ int main(int argc, char** argv) {
 #warning "Not testing OscProb"
 #endif
 
-#define TestCUDAProb3Fixed
 #ifdef TestCUDAProb3Fixed
 #warning "Test CUDAProb3 with Fixed Production Height"
     if (oscer == "cudaprob3") {
@@ -641,10 +640,9 @@ int main(int argc, char** argv) {
 #endif
     }
 #else
-#warning "Not testing CUDAProb3"
+#warning "Not testing CUDAProb3 with fixed height"
 #endif
 
-#undef TestCUDAProb3Height
 #ifdef TestCUDAProb3Height
 #warning "Test CUDAProb3 with Production Height"
     if (oscer == "cudaprob3") {

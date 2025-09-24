@@ -17,8 +17,12 @@
 #warning Including NuFASTLinear in the build
 #include <OscProbCalcer/OscProbCalcer_NuFASTLinear.h>
 #endif
+#ifdef UseProbGPULinear
+#warning Including ProbGPULinear in the build
+#include <OscProbCalcer/OscProbCalcer_ProbGPULinear.h>
+#endif
 #ifdef UseProb3ppLinear
-#warning Including Prob3PlusPlus in the build
+#warning Including Prob3ppLinear in the build
 #include <OscProbCalcer/OscProbCalcer_Prob3ppLinear.h>
 #endif
 #ifdef UseOscProb
@@ -28,6 +32,10 @@
 #ifdef UseCUDAProb3
 #warning Including CUDAProb3 in the build
 #include <OscProbCalcer/OscProbCalcer_CUDAProb3.h>
+#endif
+#ifdef UseCUDAProb3Linear
+#warning Including CUDAProb3Linear in the build
+#include <OscProbCalcer/OscProbCalcer_CUDAProb3Linear.h>
 #endif
 
 class TH1;

@@ -150,7 +150,7 @@ double CreateHist(std::map<int,int>& hist, double maxBin, int bins) {
 int main(int argc, char** argv) {
 
 #ifdef TestNuFASTLinear
-#warning "Test NuFASTLinear"
+#warning "Test NuFAST"
     {
         std::string enr{"1000"};
         std::string zen{""};
@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
                  "./Configs/exampleEnergyBinning.root","energyBinning");
     }
 #else
-#warning "Not testing NuFASTLinear"
+#warning "Not testing NUFAST"
 #endif
 
 #ifdef TestProbGPULinear
@@ -193,6 +193,7 @@ int main(int argc, char** argv) {
 #warning "Not testing ProbGPULinear"
 #endif
 
+#undef TestOscProb
 #ifdef TestOscProb
 #warning "Test OscProb"
     {
@@ -213,6 +214,7 @@ int main(int argc, char** argv) {
 #warning "Not testing OscProb"
 #endif
 
+#undef TestCUDAProb3Fixed
 #ifdef TestCUDAProb3Fixed
 #warning "Test CUDAProb3 fixed"
     {
