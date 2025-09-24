@@ -5,6 +5,7 @@ General:
 
 OscProbCalcerSetup:
   ImplementationName: "NuFASTLinear"
+  nNewtonIter: 5
   OscChannelMapping:
     - Entry: "Electron:Electron"
     - Entry: "Electron:Muon"
