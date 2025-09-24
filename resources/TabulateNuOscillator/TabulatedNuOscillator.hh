@@ -22,7 +22,7 @@
 #include <OscProbCalcer/OscProbCalcer_ProbGPULinear.h>
 #endif
 #ifdef UseProb3ppLinear
-#warning Including Prob3PlusPlus in the build
+#warning Including Prob3ppLinear in the build
 #include <OscProbCalcer/OscProbCalcer_Prob3ppLinear.h>
 #endif
 #ifdef UseOscProb
