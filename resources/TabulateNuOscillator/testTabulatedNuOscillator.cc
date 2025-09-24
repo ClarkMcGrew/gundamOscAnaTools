@@ -149,8 +149,8 @@ double CreateHist(std::map<int,int>& hist, double maxBin, int bins) {
 
 int main(int argc, char** argv) {
 
-#ifdef TestNUFAST
-#warning "Test NUFAST"
+#ifdef TestNuFASTLinear
+#warning "Test NuFASTLinear"
     {
         std::string enr{"1000"};
         std::string zen{""};
@@ -168,10 +168,31 @@ int main(int argc, char** argv) {
                  "./Configs/exampleEnergyBinning.root","energyBinning");
     }
 #else
-#warning "Not testing NUFAST"
+#warning "Not testing NuFASTLinear"
 #endif
 
-#undef TestOscProb
+#ifdef TestProbGPULinear
+#warning "Test ProbGPULinear"
+    {
+        std::string enr{"1000"};
+        std::string zen{""};
+        AddTable("./Configs/GUNDAM_ProbGPULinear","muon","muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_ProbGPULinear","muon","electron",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_ProbGPULinear","electron","muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_ProbGPULinear","anti-muon","anti-muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_ProbGPULinear","anti-muon","anti-electron",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_ProbGPULinear","anti-electron","anti-muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+    }
+#else
+#warning "Not testing ProbGPULinear"
+#endif
+
 #ifdef TestOscProb
 #warning "Test OscProb"
     {
@@ -256,6 +277,7 @@ int main(int argc, char** argv) {
     PrintHist(energyHist,energyBin);
 #endif
 
+
     // Check the binning function.
     for (TableEntry& t : gOscTables) {
         std::cout << "Test " << t.name
@@ -296,131 +318,220 @@ int main(int argc, char** argv) {
                      par.data(), par.size());
     }
 
-    // Dump the oscillation probabilities for NuFAST
-    auto default_precision{std::cout.precision()};
-    std::cout << std::fixed
-              << std::setprecision(6);
-    for (int i = 0; i<9999; ++i) {
-        std::cout << "Check Entry " << i << " ";
-        bool found = false;
-        for (TableEntry& t : gOscTables) {
-            if (t.config.find("NuFASTLinear") == std::string::npos) continue;
-            found = true;
-            if (t.table.size() <= i) {
-                std::cout << "END";
-                i = 9999;
-                break;
+#ifdef TestNuFASTLinear
+    {
+        // Dump the oscillation probabilities for NuFAST
+        auto default_precision{std::cout.precision()};
+        std::cout << std::fixed
+                  << std::setprecision(6);
+        for (int i = 0; i<1000000; ++i) {
+            std::cout << "Check Entry " << i << " ";
+            bool found = false;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("NuFASTLinear") == std::string::npos) continue;
+                found = true;
+                if (t.table.size() <= i) {
+                    std::cout << "END";
+                    i = 10000000;
+                    break;
+                }
+                std::cout << std::setw(10) << t.table[i] << " ";
             }
-            std::cout << std::setw(10) << t.table[i] << " ";
+            if (not found) i = 1000000;
+            std::cout << std::endl;
         }
-        if (not found) i = 9999;
-        std::cout << std::endl;
-    }
-    std::cout << std::defaultfloat
-              << std::setprecision(default_precision)
-              << std::setw(0);
+        std::cout << std::defaultfloat
+                  << std::setprecision(default_precision)
+                  << std::setw(0);
 
 #ifdef TEST_NUFAST_NO_OSCILLATIONS
-    // Iterate toward no oscillations
-    int iter = 0;
-    for (double ss23 = 0.60; ss23 > 1e-107; ss23 *= 0.7) {
-        par = pdgPar;
-        par[0] = ss23;
-        par[1] = ss23;
-        par[2] = ss23;
-        std::cout << "SS23 " << ss23;
-        bool found = false;
-        for (TableEntry& t : gOscTables) {
-            if (t.config.find("NuFASTLinear") == std::string::npos) continue;
-            found = true;
-            t.updateFunc(t.name.c_str(),
-                         t.table.data(), t.table.size(),
-                         par.data(), par.size());
-            std::cout  << std::setw(15)
-                       << t.table[800];
+        // Iterate toward no oscillations
+        int iter = 0;
+        for (double ss23 = 0.60; ss23 > 1e-107; ss23 *= 0.7) {
+            par = pdgPar;
+            par[0] = ss23;
+            par[1] = ss23;
+            par[2] = ss23;
+            std::cout << "SS23 " << ss23;
+            bool found = false;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("NuFASTLinear") == std::string::npos) continue;
+                found = true;
+                t.updateFunc(t.name.c_str(),
+                             t.table.data(), t.table.size(),
+                             par.data(), par.size());
+                std::cout  << std::setw(15)
+                           << t.table[800];
+            }
+            std::cout << std::endl;
+            if (not found) {
+                std::cout << "No NuFASTLinear table" << std::endl;
+                break;
+            }
         }
-        std::cout << std::endl;
-        if (not found) {
-            std::cout << "No NuFASTLinear table" << std::endl;
-            break;
+#endif
+
+        int iterations = 100;
+        std::cout << "Time " << iterations << " NuFASTLinear iterations"
+                  << " (takes several seconds)" << std::endl;
+        // Time the calls
+        auto t1 = high_resolution_clock::now();
+
+        for (int i=0; i<iterations; ++i) {
+            par = pdgPar;
+            par[4] = 1.0E-4*normal(engine) + 2.5E-3;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("NuFASTLinear") == std::string::npos) continue;
+                t.updateFunc(t.name.c_str(),
+                             t.table.data(), t.table.size(),
+                             par.data(), par.size());
+            }
         }
+        auto t2 = high_resolution_clock::now();
+
+        duration<double, std::milli> elapsed = t2 - t1;
+
+        std::cout << "NuFASTLinear Elapsed time: " << elapsed.count() << " ms total"
+                  << " " << 1000*elapsed.count()/iterations << " us per iteration"
+                  << std::endl;
     }
 #endif
 
-    int iterations = 1000;
-    std::cout << "Time " << iterations << " NuFASTLinear iterations"
-              << " (takes several seconds)" << std::endl;
-    // Time the calls
-    auto t1 = high_resolution_clock::now();
 
-    for (int i=0; i<iterations; ++i) {
-        par = pdgPar;
-        par[4] = 1.0E-4*normal(engine) + 2.5E-3;
-        for (TableEntry& t : gOscTables) {
-            if (t.config.find("NuFASTLinear") == std::string::npos) continue;
-            t.updateFunc(t.name.c_str(),
-                         t.table.data(), t.table.size(),
-                         par.data(), par.size());
+#ifdef TestProbGPULinear
+    {
+        // Dump the oscillation probabilities for ProbGPU
+        auto default_precision{std::cout.precision()};
+        std::cout << std::fixed
+                  << std::setprecision(6);
+        for (int i = 0; i<1000000; ++i) {
+            std::cout << "Check Entry " << i << " ";
+            bool found = false;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("ProbGPULinear") == std::string::npos) continue;
+                found = true;
+                if (t.table.size() <= i) {
+                    std::cout << "END";
+                    i = 10000000;
+                    break;
+                }
+                std::cout << std::setw(10) << t.table[i] << " ";
+            }
+            if (not found) i = 10000000;
+            std::cout << std::endl;
         }
-    }
-    auto t2 = high_resolution_clock::now();
+        std::cout << std::defaultfloat
+                  << std::setprecision(default_precision)
+                  << std::setw(0);
 
-    duration<double, std::milli> elapsed = t2 - t1;
-
-    std::cout << "NuFASTLinear Elapsed time: " << elapsed.count() << " ms total"
-              << " " << 1000*elapsed.count()/iterations << " us per iteration"
-              << std::endl;
-
-#ifdef TIME_OSCPROB
-    iterations = 100;
-    std::cout << "Time " << iterations << " OscProb iterations"
-              << " (takes several seconds)" << std::endl;
-    // Time the calls
-    t1 = high_resolution_clock::now();
-
-    for (int i=0; i<iterations; ++i) {
-        par = pdgPar;
-        par[4] = 1.0E-4*normal(engine) + 2.5E-3;
-        for (TableEntry& t : gOscTables) {
-            if (t.config.find("OscProb") == std::string::npos) continue;
-            t.updateFunc(t.name.c_str(),
-                         t.table.data(), t.table.size(),
-                         par.data(), par.size());
+#ifdef TEST_PROBGPU_NO_OSCILLATIONS
+        // Iterate toward no oscillations
+        int iter = 0;
+        for (double ss23 = 0.60; ss23 > 1e-107; ss23 *= 0.7) {
+            par = pdgPar;
+            par[0] = ss23;
+            par[1] = ss23;
+            par[2] = ss23;
+            std::cout << "SS23 " << ss23;
+            bool found = false;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("ProbGPULinear") == std::string::npos) continue;
+                found = true;
+                t.updateFunc(t.name.c_str(),
+                             t.table.data(), t.table.size(),
+                             par.data(), par.size());
+                std::cout  << std::setw(15)
+                           << t.table[800];
+            }
+            std::cout << std::endl;
+            if (not found) {
+                std::cout << "No ProbGPULinear table" << std::endl;
+                break;
+            }
         }
-    }
-    t2 = high_resolution_clock::now();
-
-    elapsed = t2 - t1;
-
-    std::cout << "OscProb Elapsed time: " << elapsed.count() << " ms total"
-              << " " << elapsed.count()/iterations << " ms per iteration"
-              << std::endl;
 #endif
 
-#ifdef TIME_CUDAPROB3
-    iterations = 100;
-    std::cout << "Time " << iterations << " CUDAProb3 iterations"
-              << " (takes several seconds)" << std::endl;
-    // Time the calls
-    t1 = high_resolution_clock::now();
+        int iterations = 100;
+        std::cout << "Time " << iterations << " ProbGPULinear iterations"
+                  << " (takes several seconds)" << std::endl;
+        // Time the calls
+        auto t1 = high_resolution_clock::now();
 
-    for (int i=0; i<iterations; ++i) {
-        par = pdgPar;
-        par[4] = 1.0E-4*normal(engine) + 2.5E-3;
-        for (TableEntry& t : gOscTables) {
-            if (t.config.find("CUDAProb3") == std::string::npos) continue;
-            t.updateFunc(t.name.c_str(),
-                         t.table.data(), t.table.size(),
-                         par.data(), par.size());
+        for (int i=0; i<iterations; ++i) {
+            par = pdgPar;
+            par[4] = 1.0E-4*normal(engine) + 2.5E-3;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("ProbGPULinear") == std::string::npos) continue;
+                t.updateFunc(t.name.c_str(),
+                             t.table.data(), t.table.size(),
+                             par.data(), par.size());
+            }
         }
+        auto t2 = high_resolution_clock::now();
+
+        duration<double, std::milli> elapsed = t2 - t1;
+
+        std::cout << "ProbGPULinear Elapsed time: " << elapsed.count() << " ms total"
+                  << " " << 1000*elapsed.count()/iterations << " us per iteration"
+                  << std::endl;
     }
-    t2 = high_resolution_clock::now();
+#endif
 
-    elapsed = t2 - t1;
+#ifdef TestOscProb
+    {
+        int iterations = 1;
+        std::cout << "Time " << iterations << " OscProb iterations"
+                  << " (takes several seconds)" << std::endl;
+        // Time the calls
+        auto t1 = high_resolution_clock::now();
 
-    std::cout << "CUDAProb3 Elapsed time: " << elapsed.count() << " ms total"
-              << " " << elapsed.count()/iterations << " ms per iteration"
-              << std::endl;
+        for (int i=0; i<iterations; ++i) {
+            par = pdgPar;
+            par[4] = 1.0E-4*normal(engine) + 2.5E-3;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("OscProb") == std::string::npos) continue;
+                t.updateFunc(t.name.c_str(),
+                             t.table.data(), t.table.size(),
+                             par.data(), par.size());
+            }
+        }
+        auto t2 = high_resolution_clock::now();
+
+        duration<double, std::milli> elapsed = t2 - t1;
+
+        std::cout << "OscProb Elapsed time: " << elapsed.count() << " ms total"
+                  << " " << elapsed.count()/iterations << " ms per iteration"
+                  << std::endl;
+    }
+#endif
+
+#if defined(TestCUDAProb3Fixed) or defined(TestCUDAProb3Height)
+    {
+        int iterations = 10;
+        std::cout << "Time " << iterations << " CUDAProb3 iterations"
+                  << " (takes several seconds)" << std::endl;
+        // Time the calls
+        auto t1 = high_resolution_clock::now();
+
+        for (int i=0; i<iterations; ++i) {
+            par = pdgPar;
+            par[4] = 1.0E-4*normal(engine) + 2.5E-3;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("CUDAProb3") == std::string::npos) continue;
+                t.updateFunc(t.name.c_str(),
+                             t.table.data(), t.table.size(),
+                             par.data(), par.size());
+            }
+        }
+        auto t2 = high_resolution_clock::now();
+
+        duration<double, std::milli> elapsed = t2 - t1;
+
+        std::cout << "CUDAProb3 Elapsed time: " << elapsed.count()
+                  << " ms total"
+                  << " " << elapsed.count()/iterations << " ms per iteration"
+                  << std::endl;
+    }
 #endif
 
     std::exit(EXIT_SUCCESS);
