@@ -193,6 +193,28 @@ int main(int argc, char** argv) {
 #warning "Not testing ProbGPULinear"
 #endif
 
+#ifdef TestProb3ppLinear
+#warning "Test Prob3ppLinear"
+    {
+        std::string enr{"1000"};
+        std::string zen{""};
+        AddTable("./Configs/GUNDAM_Prob3ppLinear","muon","muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_Prob3ppLinear","muon","electron",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_Prob3ppLinear","electron","muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_Prob3ppLinear","anti-muon","anti-muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_Prob3ppLinear","anti-muon","anti-electron",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+        AddTable("./Configs/GUNDAM_Prob3ppLinear","anti-electron","anti-muon",
+                 "./Configs/exampleEnergyBinning.root","energyBinning");
+    }
+#else
+#warning "Not testing Prob3ppLinear"
+#endif
+
 #ifdef TestOscProb
 #warning "Test OscProb"
     {
@@ -320,6 +342,7 @@ int main(int argc, char** argv) {
 
 #ifdef TestNuFASTLinear
     {
+#ifdef DUMP_OSCILLATION_PROBABILITIES
         // Dump the oscillation probabilities for NuFAST
         auto default_precision{std::cout.precision()};
         std::cout << std::fixed
@@ -343,8 +366,9 @@ int main(int argc, char** argv) {
         std::cout << std::defaultfloat
                   << std::setprecision(default_precision)
                   << std::setw(0);
+#endif
 
-#ifdef TEST_NUFAST_NO_OSCILLATIONS
+#ifdef TEST_NO_OSCILLATIONS
         // Iterate toward no oscillations
         int iter = 0;
         for (double ss23 = 0.60; ss23 > 1e-107; ss23 *= 0.7) {
@@ -397,9 +421,9 @@ int main(int argc, char** argv) {
     }
 #endif
 
-
 #ifdef TestProbGPULinear
     {
+#ifdef DUMP_OSCILLATION_PROBABILITIES
         // Dump the oscillation probabilities for ProbGPU
         auto default_precision{std::cout.precision()};
         std::cout << std::fixed
@@ -423,8 +447,9 @@ int main(int argc, char** argv) {
         std::cout << std::defaultfloat
                   << std::setprecision(default_precision)
                   << std::setw(0);
+#endif
 
-#ifdef TEST_PROBGPU_NO_OSCILLATIONS
+#ifdef TEST_NO_OSCILLATIONS
         // Iterate toward no oscillations
         int iter = 0;
         for (double ss23 = 0.60; ss23 > 1e-107; ss23 *= 0.7) {
@@ -472,6 +497,87 @@ int main(int argc, char** argv) {
         duration<double, std::milli> elapsed = t2 - t1;
 
         std::cout << "ProbGPULinear Elapsed time: " << elapsed.count() << " ms total"
+                  << " " << 1000*elapsed.count()/iterations << " us per iteration"
+                  << std::endl;
+    }
+#endif
+
+#ifdef TestProb3ppLinear
+    {
+#ifdef DUMP_OSCILLATION_PROBABILITIES
+        // Dump the oscillation probabilities for ProbGPU
+        auto default_precision{std::cout.precision()};
+        std::cout << std::fixed
+                  << std::setprecision(6);
+        for (int i = 0; i<1000000; ++i) {
+            std::cout << "Check Entry " << i << " ";
+            bool found = false;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("Prob3ppLinear") == std::string::npos) continue;
+                found = true;
+                if (t.table.size() <= i) {
+                    std::cout << "END";
+                    i = 10000000;
+                    break;
+                }
+                std::cout << std::setw(10) << t.table[i] << " ";
+            }
+            if (not found) i = 10000000;
+            std::cout << std::endl;
+        }
+        std::cout << std::defaultfloat
+                  << std::setprecision(default_precision)
+                  << std::setw(0);
+#endif
+
+#ifdef TEST_NO_OSCILLATIONS
+        // Iterate toward no oscillations
+        int iter = 0;
+        for (double ss23 = 0.60; ss23 > 1e-107; ss23 *= 0.7) {
+            par = pdgPar;
+            par[0] = ss23;
+            par[1] = ss23;
+            par[2] = ss23;
+            std::cout << "SS23 " << ss23;
+            bool found = false;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("Prob3ppLinear") == std::string::npos) continue;
+                found = true;
+                t.updateFunc(t.name.c_str(),
+                             t.table.data(), t.table.size(),
+                             par.data(), par.size());
+                std::cout  << std::setw(15)
+                           << t.table[800];
+            }
+            std::cout << std::endl;
+            if (not found) {
+                std::cout << "No Prob3ppLinear table" << std::endl;
+                break;
+            }
+        }
+#endif
+
+        int iterations = 100;
+        std::cout << "Time " << iterations << " Prob3ppLinear iterations"
+                  << " (takes several seconds)" << std::endl;
+        // Time the calls
+        auto t1 = high_resolution_clock::now();
+
+        for (int i=0; i<iterations; ++i) {
+            par = pdgPar;
+            par[4] = 1.0E-4*normal(engine) + 2.5E-3;
+            for (TableEntry& t : gOscTables) {
+                if (t.config.find("Prob3ppLinear") == std::string::npos) continue;
+                t.updateFunc(t.name.c_str(),
+                             t.table.data(), t.table.size(),
+                             par.data(), par.size());
+            }
+        }
+        auto t2 = high_resolution_clock::now();
+
+        duration<double, std::milli> elapsed = t2 - t1;
+
+        std::cout << "Prob3ppLinear Elapsed time: " << elapsed.count() << " ms total"
                   << " " << 1000*elapsed.count()/iterations << " us per iteration"
                   << std::endl;
     }
