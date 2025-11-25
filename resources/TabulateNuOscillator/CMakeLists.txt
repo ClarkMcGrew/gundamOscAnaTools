@@ -32,7 +32,7 @@ if( CMAKE_CUDA_COMPILER )
     endif()
   endif()
   message( STATUS "CUDA compilation architectures: \"${CMAKE_CUDA_ARCHITECTURES}\"")
-  set(UseGPU 1 CACHE STRING "NuOscillator Option -- Use the GPU")
+  set(UseGPU 0 CACHE STRING "NuOscillator Option -- Use the GPU")
 else( CMAKE_CUDA_COMPILER )
   message( WARNING "CUDA support is not present." )
   set(UseGPU 0 CACHE STRING "NuOscillator Option -- Use the GPU")
@@ -41,11 +41,10 @@ endif( CMAKE_CUDA_COMPILER )
 set(UseDoubles 1 CACHE STRING "NuOscillator Option -- Use doubles")
 set(UseCUDAProb3 1 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3")
 set(UseCUDAProb3Linear 0 CACHE STRING  "NuOscillator Option -- Enable CUDAProb3Linear")
-set(UseProb3ppLinear 1 CACHE STRING "NuOscillator Option -- Enable Prob3ppLinear")
-set(UseProbGPULinear 1 CACHE STRING  "NuOscillator Option -- Enable ProbGPULinear")
-set(UseNuFASTLinear 1 CACHE STRING  "NuOscillator Option -- Enable NuFASTLinear")
 set(UseOscProb 1 CACHE STRING  "NuOscillator Option -- Enable OscProb")
-
+set(UseProb3ppLinear 1 CACHE STRING  "NuOscillator Option -- Enable Prob3ppLinear")
+set(UseNuFASTLinear 1 CACHE STRING  "NuOscillator Option -- Enable NuFASTLinear")
+set(UseProbGPULinear 0 CACHE STRING  "NuOscillator Option -- Enable ProbGPULinear")
 set(NuOscillatorTag "v1.3.1" CACHE STRING "NuOscillator tag to build")
 
 # Get the NuOscillator package and build it.
@@ -118,6 +117,12 @@ if (UseCUDAProb3)
 endif(UseCUDAProb3)
 
 
+# Portable way (works on Linux/macOS/Windows appropriately):
+target_link_libraries(testTabulatedNuOscillator PRIVATE ${CMAKE_DL_LIBS})
+target_link_libraries(testLinearNuOscillator PRIVATE ${CMAKE_DL_LIBS})
+target_link_libraries(testAtmNuOscillator PRIVATE ${CMAKE_DL_LIBS})
+
+
 # An executable to draw the atmospheric oscillation probabilites
 add_executable(dumpAtmOscProb dumpAtmOscProb.cc)
 install(TARGETS dumpAtmOscProb DESTINATION bin)
@@ -134,3 +139,9 @@ endif(UseCUDAProb3)
 add_executable(dumpLblOscProb dumpLblOscProb.cc)
 install(TARGETS dumpLblOscProb DESTINATION bin)
 target_link_libraries(dumpLblOscProb PUBLIC NuOscillator::All)
+
+target_link_libraries(dumpAtmOscProb PRIVATE ${CMAKE_DL_LIBS})
+target_link_libraries(dumpLblOscProb PRIVATE ${CMAKE_DL_LIBS})
+
+
+
