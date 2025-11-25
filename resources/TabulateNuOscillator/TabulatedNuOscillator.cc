@@ -468,6 +468,21 @@ int initializeTable(const char* name, int argc, const char* argv[],
             else if (param == "DM32") {globals.oscParIndex.dm32 = index++;}
             else if (param == "DCP")  {globals.oscParIndex.dcp = index++;}
             else if (param == "SIGN32")  {globals.oscParIndex.sign32 = index++;}
+
+            // New: Earth radii R1, R2, ...
+            else if (!param.empty() && param[0] == 'R') {
+                int layer = std::stoi(param.substr(1));   // "R1" → "1"
+                if ((int)globals.oscParIndex.earthRIndex.size() < layer)
+                    globals.oscParIndex.earthRIndex.resize(layer, -1);
+                globals.oscParIndex.earthRIndex[layer - 1] = index++;
+            }
+            // New: Earth weights W1, W2, ...
+            else if (!param.empty() && param[0] == 'W') {
+                int layer = std::stoi(param.substr(1));   // "W2" → "2"
+                if ((int)globals.oscParIndex.earthWIndex.size() < layer)
+                    globals.oscParIndex.earthWIndex.resize(layer, -1);
+                globals.oscParIndex.earthWIndex[layer - 1] = index++;
+            }
             else {
                 LIB_CERR << "Unknown name parameter: " << param << std::endl;
                 std::exit(EXIT_FAILURE);
@@ -1592,30 +1607,84 @@ int updateTable(const char* name,
 #ifdef UseCUDAProb3
     if (config.oscillator->ReturnImplementationName()
         .find("Unbinned_CUDAProb3") != std::string::npos) {
+
         oscParamsFilled = true;
-        // This one only works for atmospheric neutrino oscillations
         using Calcer = OscProbCalcerCUDAProb3;
-        if (7 != config.oscillator->ReturnNOscParams()) {
-            LIB_COUT << "Wrong number of parameters.  Provided: "
-                     << config.oscillator->ReturnNOscParams()
-                     << " Needed: " << 7
-                     << std::endl;
-            LIB_CERR << "Wrong number of parameters.  Provided: "
-                     << config.oscillator->ReturnNOscParams()
-                     << " Needed: " << 7
-                     << std::endl;
+
+        // Local symbolic indices (old style, but named).
+        const int idxTH12  = 0;
+        const int idxTH23  = 1;
+        const int idxTH13  = 2;
+        const int idxDM12  = 3;
+        const int idxDM23  = 4;
+        const int idxDCP   = 5;
+        const int idxPRODH = 6;
+
+        const int nOscPars = config.oscillator->ReturnNOscParams();
+        const int basePars = idxPRODH + 1;  // 7
+
+        if (nOscPars < basePars) {
+            LIB_CERR << "CUDAProb3: too few parameters: " << nOscPars
+                     << " (need at least " << basePars << ")" << std::endl;
             std::exit(EXIT_FAILURE);
         }
-        config.oscParams[0] = par[config.oscParIndex.ss12];
-        config.oscParams[2] = par[config.oscParIndex.ss13];
-        config.oscParams[1] = par[config.oscParIndex.ss23];
-        config.oscParams[3] = par[config.oscParIndex.dm21];
-        config.oscParams[4] = par[config.oscParIndex.dm32];
-        config.oscParams[5] = par[config.oscParIndex.dcp];
-        config.oscParams[6] = config.oscProdHeight;
+
+        // ---- Fill PMNS + production height ----
+        config.oscParams[idxTH12]  = par[config.oscParIndex.ss12];
+        config.oscParams[idxTH13]  = par[config.oscParIndex.ss13];
+        config.oscParams[idxTH23]  = par[config.oscParIndex.ss23];
+        config.oscParams[idxDM12]  = par[config.oscParIndex.dm21];
+        config.oscParams[idxDM23]  = par[config.oscParIndex.dm32];
+        config.oscParams[idxDCP]   = par[config.oscParIndex.dcp];
+        config.oscParams[idxPRODH] = config.oscProdHeight;
+
         if (0 <= config.oscParIndex.sign32
-            and par[config.oscParIndex.sign32] < 0) {
-            config.oscParams[4] = - config.oscParams[4];
+            && par[config.oscParIndex.sign32] < 0) {
+            // flip sign of Δm²32
+            config.oscParams[idxDM23] = -config.oscParams[idxDM23];
+        }
+
+        // ---- Extra Earth model parameters (optional) ----
+        const int nExtra = nOscPars - basePars;
+        int nLayers = 0;
+
+        if (nExtra > 0) {
+            if (nExtra % 3 != 0) {
+                LIB_CERR << "CUDAProb3: Earth model extra params (" << nExtra
+                         << ") not multiple of 3" << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
+            nLayers = nExtra / 3;
+        }
+
+        const int idxRBase  = basePars;              // start of R_i
+        const int idxWBase  = idxRBase + nLayers;    // start of W_i
+        const int idxYpBase = idxWBase + nLayers;    // start of Yp_i
+
+        // Fill layer boundaries R_i
+        for (int iLayer = 0; iLayer < nLayers; ++iLayer) {
+            int idx = (iLayer < (int)config.oscParIndex.earthRIndex.size())
+                      ? config.oscParIndex.earthRIndex[iLayer] : -1;
+            if (idx >= 0) {
+                config.oscParams[idxRBase + iLayer] = par[idx];
+            }
+        }
+
+        // Fill layer weights W_i
+        for (int iLayer = 0; iLayer < nLayers; ++iLayer) {
+            int idx = (iLayer < (int)config.oscParIndex.earthWIndex.size())
+                      ? config.oscParIndex.earthWIndex[iLayer] : -1;
+            if (idx >= 0) {
+                config.oscParams[idxWBase + iLayer] = par[idx];
+            }
+        }
+
+        static const double defaultYp[] = {0.468, 0.468, 0.497, 0.497};
+        const int nYpHardCoded = sizeof(defaultYp) / sizeof(defaultYp[0]);
+        for (int iLayer = 0; iLayer < nLayers; ++iLayer) {
+            if (iLayer < nYpHardCoded) {
+                config.oscParams[idxYpBase + iLayer] = defaultYp[iLayer];
+            }
         }
     }
 #endif

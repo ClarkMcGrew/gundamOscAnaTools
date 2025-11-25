@@ -53,6 +53,11 @@ namespace TabulatedNuOscillator {
         int dm32{-1};
         int dcp{-1};
         int sign32{-1};
+
+        // Earth model parameters
+        std::vector<int> earthRIndex; 
+        std::vector<int> earthWIndex;
+
     };
 
     /// The payload for a map between the NuOscillator config file used and
